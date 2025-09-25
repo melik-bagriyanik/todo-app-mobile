@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
-import { Stack } from 'expo-router';
+import { View, Text, FlatList, Alert, TextInput, Modal } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
 import { Container } from '@/components/Container';
 import { Button } from '@/components/Button';
+import { LoadingIndicator } from '@/components/LoadingIndicator';
+import { ErrorMessage } from '@/components/ErrorMessage';
+import { ListItem } from '@/components/ListItem';
 import { getAllLists, createList, deleteList } from '@/queries/lists';
 import { List } from '@/types';
 
@@ -14,6 +17,7 @@ export default function ListsScreen() {
   const [newListName, setNewListName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [deletingListId, setDeletingListId] = useState<number | null>(null);
+  const router = useRouter();
 
   // Fetch all lists
   const fetchLists = async () => {
@@ -82,60 +86,32 @@ export default function ListsScreen() {
     );
   };
 
-  // Handle list press (no navigation needed)
+  // Navigate to tasks for a specific list
   const handleListPress = (list: List) => {
-    // Just show list info or do nothing
-    Alert.alert('List Info', `List: ${list.name}\nCreated: ${new Date(list.created_at).toLocaleDateString()}`);
+    router.push({
+      pathname: '/tasks',
+      params: { listId: list.id.toString(), listName: list.name },
+    });
   };
 
   useEffect(() => {
     fetchLists();
   }, []);
 
-  const renderList = ({ item }: { item: List }) => {
-    const isDeleting = deletingListId === item.id;
-    
-    return (
-      <View className={`p-4 mb-3 rounded-lg shadow-sm border border-gray-200 ${
-        isDeleting ? 'bg-gray-100 opacity-75' : 'bg-white'
-      }`}>
-        <TouchableOpacity
-          onPress={() => !isDeleting && handleListPress(item)}
-          className="flex-1"
-          disabled={isDeleting}
-        >
-          <Text className="text-lg font-semibold text-gray-800">{item.name}</Text>
-          <Text className="text-sm text-gray-500 mt-1">
-            Created: {new Date(item.created_at).toLocaleDateString()}
-          </Text>
-        </TouchableOpacity>
-        
-        <View className="flex-row justify-end mt-3">
-          <TouchableOpacity
-            onPress={() => !isDeleting && handleDeleteList(item)}
-            disabled={isDeleting}
-            className={`px-4 py-2 rounded-lg ${
-              isDeleting 
-                ? 'bg-gray-400' 
-                : 'bg-red-500'
-            }`}
-          >
-            <Text className="text-white font-medium">
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
+  const renderList = ({ item }: { item: List }) => (
+    <ListItem
+      list={item}
+      onPress={handleListPress}
+      onDelete={handleDeleteList}
+      isDeleting={deletingListId === item.id}
+    />
+  );
 
   if (loading) {
     return (
       <Container>
         <Stack.Screen options={{ title: 'Lists' }} />
-        <View className="flex-1 justify-center items-center">
-          <Text className="text-lg text-gray-600">Loading lists...</Text>
-        </View>
+        <LoadingIndicator message="Loading lists..." />
       </Container>
     );
   }
@@ -144,10 +120,7 @@ export default function ListsScreen() {
     return (
       <Container>
         <Stack.Screen options={{ title: 'Lists' }} />
-        <View className="flex-1 justify-center items-center">
-          <Text className="text-lg text-red-600 mb-4">{error}</Text>
-          <Button title="Retry" onPress={fetchLists} />
-        </View>
+        <ErrorMessage message={error} onRetry={fetchLists} />
       </Container>
     );
   }
