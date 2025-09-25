@@ -47,7 +47,7 @@ export const TaskItem = ({ task, onToggle, onDelete, isDeleting = false, isProce
             : 'border-gray-300'
         }`}>
           {isProcessing ? (
-            <ActivityIndicator size="small" color={task.is_completed ? "#10b981" : "#6b7280"} />
+            <ActivityIndicator size="small" color="#10b981" />
           ) : task.is_completed ? (
             <Text className="text-white text-center text-sm">✓</Text>
           ) : null}
@@ -78,8 +78,8 @@ export const TaskItem = ({ task, onToggle, onDelete, isDeleting = false, isProce
             )}
             {isDeleting && (
               <View className="flex-row items-center ml-2">
-                <ActivityIndicator size="small" color="#ef4444" />
-                <Text className="text-xs text-red-500 ml-1">Deleting...</Text>
+                <ActivityIndicator size="small" color="#10b981" />
+                <Text className="text-xs text-green-500 ml-1">Deleting...</Text>
               </View>
             )}
           </View>

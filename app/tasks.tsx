@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, Alert, TextInput, Modal } from 'react-native';
+import { View, Text, FlatList, Alert, TextInput, Modal, RefreshControl } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
+import Toast from 'react-native-toast-message';
 import { Container } from '@/components/Container';
 import { Button } from '@/components/Button';
 import { LoadingIndicator } from '@/components/LoadingIndicator';
@@ -24,6 +25,7 @@ export default function TasksScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
   const [processingTaskIds, setProcessingTaskIds] = useState<Set<number>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
 
   const listIdNumber = parseInt(listId || '0');
 
@@ -41,6 +43,23 @@ export default function TasksScreen() {
       console.error('Error fetching tasks:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Refresh tasks (for pull-to-refresh)
+  const onRefresh = async () => {
+    if (!listIdNumber) return;
+    
+    try {
+      setRefreshing(true);
+      setError(null);
+      const fetchedTasks = await getTasksByListId(listIdNumber);
+      setTasks(fetchedTasks);
+    } catch (err) {
+      setError('Failed to refresh tasks. Please try again.');
+      console.error('Error refreshing tasks:', err);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -66,8 +85,17 @@ export default function TasksScreen() {
       // Refresh the tasks without showing loading
       const fetchedTasks = await getTasksByListId(listIdNumber);
       setTasks(fetchedTasks);
+      Toast.show({
+        type: 'success',
+        text1: 'Task Created',
+        text2: 'Your task has been created successfully!',
+      });
     } catch (err) {
-      Alert.alert('Error', 'Failed to create task. Please try again.');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to create task. Please try again.',
+      });
       console.error('Error creating task:', err);
     } finally {
       setIsCreating(false);
@@ -92,8 +120,17 @@ export default function TasksScreen() {
       // Refresh tasks after successful update
       const fetchedTasks = await getTasksByListId(listIdNumber);
       setTasks(fetchedTasks);
+      Toast.show({
+        type: 'success',
+        text1: 'Task Updated',
+        text2: `Task marked as ${newCompletionStatus ? 'completed' : 'pending'}`,
+      });
     } catch (err) {
-      Alert.alert('Error', 'Failed to update task. Please try again.');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to update task. Please try again.',
+      });
       console.error('Error toggling task:', err);
     } finally {
       // Remove task from processing set
@@ -122,8 +159,17 @@ export default function TasksScreen() {
               // Refresh the tasks without showing loading
               const fetchedTasks = await getTasksByListId(listIdNumber);
               setTasks(fetchedTasks);
+              Toast.show({
+                type: 'success',
+                text1: 'Task Deleted',
+                text2: 'Task has been deleted successfully!',
+              });
             } catch (err) {
-              Alert.alert('Error', 'Failed to delete task. Please try again.');
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to delete task. Please try again.',
+              });
               console.error('Error deleting task:', err);
             } finally {
               setDeletingTaskId(null);
@@ -206,6 +252,14 @@ export default function TasksScreen() {
             keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 20 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#10b981']}
+                tintColor="#10b981"
+              />
+            }
           />
         )}
       </View>

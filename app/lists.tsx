@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, Alert, TextInput, Modal } from 'react-native';
+import { View, Text, FlatList, Alert, TextInput, Modal, RefreshControl } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
+import Toast from 'react-native-toast-message';
 import { Container } from '@/components/Container';
 import { Button } from '@/components/Button';
 import { LoadingIndicator } from '@/components/LoadingIndicator';
@@ -17,6 +18,7 @@ export default function ListsScreen() {
   const [newListName, setNewListName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [deletingListId, setDeletingListId] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
   // Fetch all lists
@@ -31,6 +33,21 @@ export default function ListsScreen() {
       console.error('Error fetching lists:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Refresh lists (for pull-to-refresh)
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      setError(null);
+      const fetchedLists = await getAllLists();
+      setLists(fetchedLists);
+    } catch (err) {
+      setError('Failed to refresh lists. Please try again.');
+      console.error('Error refreshing lists:', err);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -49,8 +66,17 @@ export default function ListsScreen() {
       // Refresh the lists without showing loading
       const fetchedLists = await getAllLists();
       setLists(fetchedLists);
+      Toast.show({
+        type: 'success',
+        text1: 'List Created',
+        text2: 'Your list has been created successfully!',
+      });
     } catch (err) {
-      Alert.alert('Error', 'Failed to create list. Please try again.');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to create list. Please try again.',
+      });
       console.error('Error creating list:', err);
     } finally {
       setIsCreating(false);
@@ -74,8 +100,17 @@ export default function ListsScreen() {
               // Refresh the lists without showing loading
               const fetchedLists = await getAllLists();
               setLists(fetchedLists);
+              Toast.show({
+                type: 'success',
+                text1: 'List Deleted',
+                text2: 'List has been deleted successfully!',
+              });
             } catch (err) {
-              Alert.alert('Error', 'Failed to delete list. Please try again.');
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to delete list. Please try again.',
+              });
               console.error('Error deleting list:', err);
             } finally {
               setDeletingListId(null);
@@ -152,6 +187,14 @@ export default function ListsScreen() {
             keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 20 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#10b981']}
+                tintColor="#10b981"
+              />
+            }
           />
         )}
       </View>
