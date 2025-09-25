@@ -13,6 +13,7 @@ export default function ListsScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [deletingListId, setDeletingListId] = useState<number | null>(null);
 
   // Fetch all lists
   const fetchLists = async () => {
@@ -41,8 +42,9 @@ export default function ListsScreen() {
       await createList(newListName.trim());
       setNewListName('');
       setShowAddModal(false);
-      // Refresh the lists
-      await fetchLists();
+      // Refresh the lists without showing loading
+      const fetchedLists = await getAllLists();
+      setLists(fetchedLists);
     } catch (err) {
       Alert.alert('Error', 'Failed to create list. Please try again.');
       console.error('Error creating list:', err);
@@ -63,11 +65,16 @@ export default function ListsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              setDeletingListId(list.id);
               await deleteList(list.id);
-              await fetchLists();
+              // Refresh the lists without showing loading
+              const fetchedLists = await getAllLists();
+              setLists(fetchedLists);
             } catch (err) {
               Alert.alert('Error', 'Failed to delete list. Please try again.');
               console.error('Error deleting list:', err);
+            } finally {
+              setDeletingListId(null);
             }
           },
         },
@@ -85,28 +92,42 @@ export default function ListsScreen() {
     fetchLists();
   }, []);
 
-  const renderList = ({ item }: { item: List }) => (
-    <View className="bg-white p-4 mb-3 rounded-lg shadow-sm border border-gray-200">
-      <TouchableOpacity
-        onPress={() => handleListPress(item)}
-        className="flex-1"
-      >
-        <Text className="text-lg font-semibold text-gray-800">{item.name}</Text>
-        <Text className="text-sm text-gray-500 mt-1">
-          Created: {new Date(item.created_at).toLocaleDateString()}
-        </Text>
-      </TouchableOpacity>
-      
-      <View className="flex-row justify-end mt-3">
+  const renderList = ({ item }: { item: List }) => {
+    const isDeleting = deletingListId === item.id;
+    
+    return (
+      <View className={`p-4 mb-3 rounded-lg shadow-sm border border-gray-200 ${
+        isDeleting ? 'bg-gray-100 opacity-75' : 'bg-white'
+      }`}>
         <TouchableOpacity
-          onPress={() => handleDeleteList(item)}
-          className="bg-red-500 px-4 py-2 rounded-lg"
+          onPress={() => !isDeleting && handleListPress(item)}
+          className="flex-1"
+          disabled={isDeleting}
         >
-          <Text className="text-white font-medium">Delete</Text>
+          <Text className="text-lg font-semibold text-gray-800">{item.name}</Text>
+          <Text className="text-sm text-gray-500 mt-1">
+            Created: {new Date(item.created_at).toLocaleDateString()}
+          </Text>
         </TouchableOpacity>
+        
+        <View className="flex-row justify-end mt-3">
+          <TouchableOpacity
+            onPress={() => !isDeleting && handleDeleteList(item)}
+            disabled={isDeleting}
+            className={`px-4 py-2 rounded-lg ${
+              isDeleting 
+                ? 'bg-gray-400' 
+                : 'bg-red-500'
+            }`}
+          >
+            <Text className="text-white font-medium">
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   if (loading) {
     return (
