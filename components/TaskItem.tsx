@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Task } from '@/types';
 
 interface TaskItemProps {
@@ -7,29 +8,49 @@ interface TaskItemProps {
   onToggle: (task: Task) => void;
   onDelete: (task: Task) => void;
   isDeleting?: boolean;
+  isProcessing?: boolean;
 }
 
-export const TaskItem = ({ task, onToggle, onDelete, isDeleting = false }: TaskItemProps) => {
+export const TaskItem = ({ task, onToggle, onDelete, isDeleting = false, isProcessing = false }: TaskItemProps) => {
+  const handleToggle = () => {
+    if (!isDeleting && !isProcessing) {
+      // Provide immediate haptic feedback
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onToggle(task);
+    }
+  };
+
+  const handleDelete = () => {
+    if (!isDeleting) {
+      // Provide stronger haptic feedback for delete action
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onDelete(task);
+    }
+  };
+
   return (
     <View className={`p-4 mb-3 rounded-lg border ${
       task.is_completed 
         ? 'bg-green-50 border-green-200' 
         : 'bg-white border-gray-200'
-    } ${isDeleting ? 'opacity-75' : ''}`}>
+    } ${isDeleting ? 'opacity-75' : ''} ${isProcessing ? 'opacity-70' : ''}`}>
       <TouchableOpacity
-        onPress={() => !isDeleting && onToggle(task)}
-        onLongPress={() => !isDeleting && onDelete(task)}
+        onPress={handleToggle}
+        onLongPress={handleDelete}
         className="flex-row items-center"
-        disabled={isDeleting}
+        disabled={isDeleting || isProcessing}
+        activeOpacity={0.7}
       >
         <View className={`w-6 h-6 rounded-full border-2 mr-3 ${
           task.is_completed 
             ? 'bg-green-500 border-green-500' 
             : 'border-gray-300'
         }`}>
-          {task.is_completed && (
+          {isProcessing ? (
+            <ActivityIndicator size="small" color={task.is_completed ? "#10b981" : "#6b7280"} />
+          ) : task.is_completed ? (
             <Text className="text-white text-center text-sm">✓</Text>
-          )}
+          ) : null}
         </View>
         <View className="flex-1">
           <Text className={`text-lg font-medium ${
@@ -54,6 +75,12 @@ export const TaskItem = ({ task, onToggle, onDelete, isDeleting = false }: TaskI
               <Text className="text-xs text-gray-500 ml-2">
                 Due: {new Date(task.due_date).toLocaleDateString()}
               </Text>
+            )}
+            {isDeleting && (
+              <View className="flex-row items-center ml-2">
+                <ActivityIndicator size="small" color="#ef4444" />
+                <Text className="text-xs text-red-500 ml-1">Deleting...</Text>
+              </View>
             )}
           </View>
         </View>

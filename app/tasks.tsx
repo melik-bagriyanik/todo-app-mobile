@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { LoadingIndicator } from '@/components/LoadingIndicator';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { TaskItem } from '@/components/TaskItem';
+import { SkeletonTaskItem } from '@/components/SkeletonTaskItem';
 import { getTasksByListId, createTask, deleteTask, toggleTaskCompletion } from '@/queries/tasks';
 import { Task } from '@/types';
 
@@ -22,6 +23,7 @@ export default function TasksScreen() {
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
+  const [processingTaskIds, setProcessingTaskIds] = useState<Set<number>>(new Set());
 
   const listIdNumber = parseInt(listId || '0');
 
@@ -72,16 +74,34 @@ export default function TasksScreen() {
     }
   };
 
-  // Toggle task completion
+  // Toggle task completion with loading state
   const handleToggleTask = async (task: Task) => {
+    // Prevent multiple simultaneous operations on the same task
+    if (processingTaskIds.has(task.id)) {
+      return;
+    }
+
+    const newCompletionStatus = !task.is_completed;
+    
+    // Add task to processing set for loading state
+    setProcessingTaskIds(prev => new Set(prev).add(task.id));
+
     try {
-      await toggleTaskCompletion(task.id, !task.is_completed);
-      // Refresh the tasks without showing loading
+      // Perform the database update
+      await toggleTaskCompletion(task.id, newCompletionStatus);
+      // Refresh tasks after successful update
       const fetchedTasks = await getTasksByListId(listIdNumber);
       setTasks(fetchedTasks);
     } catch (err) {
       Alert.alert('Error', 'Failed to update task. Please try again.');
       console.error('Error toggling task:', err);
+    } finally {
+      // Remove task from processing set
+      setProcessingTaskIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(task.id);
+        return newSet;
+      });
     }
   };
 
@@ -124,6 +144,7 @@ export default function TasksScreen() {
       onToggle={handleToggleTask}
       onDelete={handleDeleteTask}
       isDeleting={deletingTaskId === item.id}
+      isProcessing={processingTaskIds.has(item.id)}
     />
   );
 
@@ -131,7 +152,20 @@ export default function TasksScreen() {
     return (
       <Container>
         <Stack.Screen options={{ title: listName }} />
-        <LoadingIndicator message="Loading tasks..." />
+        <View className="flex-1 p-4">
+          <View className="mb-4">
+            <Button
+              title="Add New Task"
+              onPress={() => setShowAddModal(true)}
+              className="bg-blue-500"
+            />
+          </View>
+          <View className="flex-1">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <SkeletonTaskItem key={i} />
+            ))}
+          </View>
+        </View>
       </Container>
     );
   }
@@ -215,9 +249,9 @@ export default function TasksScreen() {
                 className="flex-1 bg-gray-500"
               />
               <Button
-                title={isCreating ? "Creating..." : "Create"}
+                title="Create"
                 onPress={handleCreateTask}
-                disabled={isCreating}
+                loading={isCreating}
                 className="flex-1 bg-blue-500"
               />
             </View>

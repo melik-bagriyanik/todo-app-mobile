@@ -20,6 +20,7 @@
     "expo": "^52.0.46",
     "expo-constants": "~17.0.8",
     "expo-drizzle-studio-plugin": "^0.1.2",
+    "expo-haptics": "^15.0.7",
     "expo-linking": "~7.0.5",
     "expo-router": "~4.0.6",
     "expo-sqlite": "~15.1.4",
