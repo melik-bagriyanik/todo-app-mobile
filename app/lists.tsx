@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, Alert, TextInput, Modal, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, FlatList, Alert, TextInput, Modal, RefreshControl, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { Container } from '@/components/Container';
@@ -7,7 +7,7 @@ import { Button } from '@/components/Button';
 import { LoadingIndicator } from '@/components/LoadingIndicator';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { ListItem } from '@/components/ListItem';
-import { getAllLists, createList, deleteList } from '@/queries/lists';
+import { getAllLists, createList, deleteList, searchListsByName } from '@/queries/lists';
 import { List } from '@/types';
 
 export default function ListsScreen() {
@@ -19,7 +19,28 @@ export default function ListsScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [deletingListId, setDeletingListId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const router = useRouter();
+
+  // Debounce hook
+  const useDebounce = (value: string, delay: number) => {
+    const [debouncedValue, setDebouncedValue] = useState(value);
+
+    useEffect(() => {
+      const handler = setTimeout(() => {
+        setDebouncedValue(value);
+      }, delay);
+
+      return () => {
+        clearTimeout(handler);
+      };
+    }, [value, delay]);
+
+    return debouncedValue;
+  };
+
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
   // Fetch all lists
   const fetchLists = async () => {
@@ -50,6 +71,33 @@ export default function ListsScreen() {
       setRefreshing(false);
     }
   };
+
+  // Search lists by name
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) {
+      // If search is empty, fetch all lists
+      fetchLists();
+      return;
+    }
+    
+    try {
+      setIsSearching(true);
+      setError(null);
+      const searchResults = await searchListsByName(query);
+      setLists(searchResults);
+    } catch (err) {
+      setError('Failed to search lists. Please try again.');
+      console.error('Error searching lists:', err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Debounced search effect
+  useEffect(() => {
+    if (debouncedSearchQuery !== searchQuery) return;
+    handleSearch(debouncedSearchQuery);
+  }, [debouncedSearchQuery]);
 
   // Create new list
   const handleCreateList = async () => {
@@ -165,6 +213,23 @@ export default function ListsScreen() {
       <Stack.Screen options={{ title: 'Lists' }} />
       
       <View className="flex-1">
+        {/* Search Bar */}
+        <View className="mb-4">
+          <View className="relative">
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search lists..."
+              className="border border-gray-300 rounded-lg p-3 mb-3 text-base pr-10"
+            />
+            {isSearching && (
+              <View className="absolute right-3 top-3">
+                <ActivityIndicator size="small" color="#10b981" />
+              </View>
+            )}
+          </View>
+        </View>
+
         <View className="mb-4">
           <Button
             title="Add New List"
