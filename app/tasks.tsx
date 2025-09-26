@@ -9,6 +9,8 @@ import { ErrorMessage } from '@/components/ErrorMessage';
 import { TaskItem } from '@/components/TaskItem';
 import { getTasksByListId, createTask, deleteTask, toggleTaskCompletion, searchTasksByName, getTasksByStatus, getTasksByPriority } from '@/queries/tasks';
 import { Task } from '@/types';
+import { CreateTaskSchema, TaskIdSchema, TaskSearchSchema, TaskFilterSchema } from '@/validation/schemas';
+import { validateWithAlert, validateFormInput } from '@/validation/utils';
 
 export default function TasksScreen() {
   const { listId, listName } = useLocalSearchParams<{
@@ -103,6 +105,13 @@ export default function TasksScreen() {
       } finally {
         setIsSearching(false);
       }
+      return;
+    }
+    
+    // Validate search query
+    const searchValidation = validateFormInput(query, 1, 100, 'Search query');
+    if (!searchValidation.isValid) {
+      Alert.alert('Validation Error', searchValidation.error);
       return;
     }
     
@@ -201,18 +210,33 @@ export default function TasksScreen() {
 
   // Create new task
   const handleCreateTask = async () => {
-    if (!newTaskName.trim()) {
-      Alert.alert('Error', 'Please enter a task name');
+    // Validate task name
+    const nameValidation = validateFormInput(newTaskName, 1, 100, 'Task name');
+    if (!nameValidation.isValid) {
+      Alert.alert('Validation Error', nameValidation.error);
       return;
     }
+
+    // Validate task data with Zod
+    const taskData = {
+      name: newTaskName.trim(),
+      description: newTaskDescription.trim() || undefined,
+      list_id: listIdNumber,
+      priority: 'medium' as const,
+    };
+
+    const validatedData = validateWithAlert(
+      CreateTaskSchema,
+      taskData,
+      'Task Validation Error'
+    );
+
+    if (!validatedData) return;
 
     try {
       setIsCreating(true);
       await createTask({
-        name: newTaskName.trim(),
-        description: newTaskDescription.trim() || undefined,
-        list_id: listIdNumber,
-        priority: 'medium',
+        ...validatedData,
         status: 'pending',
       });
       setNewTaskName('');

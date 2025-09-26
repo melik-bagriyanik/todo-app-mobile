@@ -9,6 +9,8 @@ import { ErrorMessage } from '@/components/ErrorMessage';
 import { ListItem } from '@/components/ListItem';
 import { getAllLists, createList, deleteList, searchListsByName } from '@/queries/lists';
 import { List } from '@/types';
+import { CreateListSchema, ListIdSchema, ListSearchSchema } from '@/validation/schemas';
+import { validateWithAlert, validateFormInput } from '@/validation/utils';
 
 export default function ListsScreen() {
   const [lists, setLists] = useState<List[]>([]);
@@ -90,6 +92,13 @@ export default function ListsScreen() {
       return;
     }
     
+    // Validate search query
+    const searchValidation = validateFormInput(query, 1, 100, 'Search query');
+    if (!searchValidation.isValid) {
+      Alert.alert('Validation Error', searchValidation.error);
+      return;
+    }
+    
     try {
       setIsSearching(true);
       setError(null);
@@ -111,14 +120,29 @@ export default function ListsScreen() {
 
   // Create new list
   const handleCreateList = async () => {
-    if (!newListName.trim()) {
-      Alert.alert('Error', 'Please enter a list name');
+    // Validate list name
+    const nameValidation = validateFormInput(newListName, 1, 50, 'List name');
+    if (!nameValidation.isValid) {
+      Alert.alert('Validation Error', nameValidation.error);
       return;
     }
 
+    // Validate list data with Zod
+    const listData = {
+      name: newListName.trim(),
+    };
+
+    const validatedData = validateWithAlert(
+      CreateListSchema,
+      listData,
+      'List Validation Error'
+    );
+
+    if (!validatedData) return;
+
     try {
       setIsCreating(true);
-      await createList(newListName.trim());
+      await createList(validatedData.name);
       setNewListName('');
       setShowAddModal(false);
       // Refresh the lists without showing loading
