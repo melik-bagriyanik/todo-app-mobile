@@ -7,7 +7,6 @@ import { Button } from '@/components/Button';
 import { LoadingIndicator } from '@/components/LoadingIndicator';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { TaskItem } from '@/components/TaskItem';
-import { SkeletonTaskItem } from '@/components/SkeletonTaskItem';
 import { getTasksByListId, createTask, deleteTask, toggleTaskCompletion, searchTasksByName, getTasksByStatus, getTasksByPriority } from '@/queries/tasks';
 import { Task } from '@/types';
 
@@ -30,6 +29,7 @@ export default function TasksScreen() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [isSearching, setIsSearching] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
 
   const listIdNumber = parseInt(listId || '0');
 
@@ -91,8 +91,18 @@ export default function TasksScreen() {
     if (!listIdNumber) return;
     
     if (!query.trim()) {
-      // If search is empty, fetch all tasks
-      fetchTasks();
+      // If search is empty, fetch all tasks without showing full screen loading
+      try {
+        setIsSearching(true);
+        setError(null);
+        const fetchedTasks = await getTasksByListId(listIdNumber);
+        setTasks(fetchedTasks);
+      } catch (err) {
+        setError('Failed to load tasks. Please try again.');
+        console.error('Error fetching tasks:', err);
+      } finally {
+        setIsSearching(false);
+      }
       return;
     }
     
@@ -124,12 +134,22 @@ export default function TasksScreen() {
     setFilterStatus(status);
     
     if (status === 'all') {
-      fetchTasks();
+      try {
+        setIsFiltering(true);
+        setError(null);
+        const fetchedTasks = await getTasksByListId(listIdNumber);
+        setTasks(fetchedTasks);
+      } catch (err) {
+        setError('Failed to load tasks. Please try again.');
+        console.error('Error fetching tasks:', err);
+      } finally {
+        setIsFiltering(false);
+      }
       return;
     }
     
     try {
-      setIsSearching(true);
+      setIsFiltering(true);
       setError(null);
       const filteredTasks = await getTasksByStatus(status);
       // Filter results to only include tasks from current list
@@ -139,7 +159,7 @@ export default function TasksScreen() {
       setError('Failed to filter tasks. Please try again.');
       console.error('Error filtering tasks:', err);
     } finally {
-      setIsSearching(false);
+      setIsFiltering(false);
     }
   };
 
@@ -150,12 +170,22 @@ export default function TasksScreen() {
     setFilterPriority(priority);
     
     if (priority === 'all') {
-      fetchTasks();
+      try {
+        setIsFiltering(true);
+        setError(null);
+        const fetchedTasks = await getTasksByListId(listIdNumber);
+        setTasks(fetchedTasks);
+      } catch (err) {
+        setError('Failed to load tasks. Please try again.');
+        console.error('Error fetching tasks:', err);
+      } finally {
+        setIsFiltering(false);
+      }
       return;
     }
     
     try {
-      setIsSearching(true);
+      setIsFiltering(true);
       setError(null);
       const filteredTasks = await getTasksByPriority(priority);
       // Filter results to only include tasks from current list
@@ -165,7 +195,7 @@ export default function TasksScreen() {
       setError('Failed to filter tasks. Please try again.');
       console.error('Error filtering tasks:', err);
     } finally {
-      setIsSearching(false);
+      setIsFiltering(false);
     }
   };
 
@@ -304,20 +334,7 @@ export default function TasksScreen() {
     return (
       <Container>
         <Stack.Screen options={{ title: listName }} />
-        <View className="flex-1 p-4">
-          <View className="mb-4">
-            <Button
-              title="Add New Task"
-              onPress={() => setShowAddModal(true)}
-              className="bg-blue-500"
-            />
-          </View>
-          <View className="flex-1">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <SkeletonTaskItem key={i} />
-            ))}
-          </View>
-        </View>
+        <LoadingIndicator message="Loading tasks..." />
       </Container>
     );
   }
@@ -343,12 +360,24 @@ export default function TasksScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search tasks..."
-              className="border border-gray-300 rounded-lg p-3 mb-3 text-base pr-10"
+              placeholderTextColor="#9CA3AF"
+              className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 shadow-sm focus:border-green-500 focus:shadow-md"
+              style={{
+                paddingRight: isSearching ? 40 : 16,
+              }}
             />
             {isSearching && (
-              <View className="absolute right-3 top-3">
+              <View className="absolute right-3 top-1/2 transform -translate-y-1/2">
                 <ActivityIndicator size="small" color="#10b981" />
               </View>
+            )}
+            {!isSearching && searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-gray-300 items-center justify-center"
+              >
+                <Text className="text-gray-600 text-xs font-bold">×</Text>
+              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -431,6 +460,11 @@ export default function TasksScreen() {
               Tap "Add New Task" to create your first task
             </Text>
           </View>
+        ) : isFiltering ? (
+          <View className="flex-1 justify-center items-center">
+            <ActivityIndicator size="large" color="#10b981" />
+            <Text className="text-lg text-gray-600 mt-4">Filtering tasks...</Text>
+          </View>
         ) : (
           <FlatList
             data={tasks}
@@ -465,7 +499,8 @@ export default function TasksScreen() {
               value={newTaskName}
               onChangeText={setNewTaskName}
               placeholder="Enter task name"
-              className="border border-gray-300 rounded-lg p-3 mb-3 text-base"
+              placeholderTextColor="#9CA3AF"
+              className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 mb-3 text-base text-gray-800 shadow-sm focus:border-green-500 focus:shadow-md"
               autoFocus
             />
             
@@ -473,12 +508,13 @@ export default function TasksScreen() {
               value={newTaskDescription}
               onChangeText={setNewTaskDescription}
               placeholder="Enter description (optional)"
-              className="border border-gray-300 rounded-lg p-3 mb-4 text-base"
+              placeholderTextColor="#9CA3AF"
+              className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 mb-4 text-base text-gray-800 shadow-sm focus:border-green-500 focus:shadow-md"
               multiline
               numberOfLines={3}
             />
             
-            <View className="flex-row space-x-3">
+            <View className="flex-row">
               <Button
                 title="Cancel"
                 onPress={() => {
@@ -486,7 +522,7 @@ export default function TasksScreen() {
                   setNewTaskName('');
                   setNewTaskDescription('');
                 }}
-                className="flex-1 bg-gray-500"
+                className="flex-1 bg-gray-500 mr-3"
               />
               <Button
                 title="Create"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, Alert, TextInput, Modal, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Alert, TextInput, Modal, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { Container } from '@/components/Container';
@@ -75,8 +75,18 @@ export default function ListsScreen() {
   // Search lists by name
   const handleSearch = async (query: string) => {
     if (!query.trim()) {
-      // If search is empty, fetch all lists
-      fetchLists();
+      // If search is empty, fetch all lists without showing full screen loading
+      try {
+        setIsSearching(true);
+        setError(null);
+        const fetchedLists = await getAllLists();
+        setLists(fetchedLists);
+      } catch (err) {
+        setError('Failed to load lists. Please try again.');
+        console.error('Error fetching lists:', err);
+      } finally {
+        setIsSearching(false);
+      }
       return;
     }
     
@@ -220,12 +230,24 @@ export default function ListsScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search lists..."
-              className="border border-gray-300 rounded-lg p-3 mb-3 text-base pr-10"
+              placeholderTextColor="#9CA3AF"
+              className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 shadow-sm focus:border-green-500 focus:shadow-md"
+              style={{
+                paddingRight: isSearching ? 40 : 16,
+              }}
             />
             {isSearching && (
-              <View className="absolute right-3 top-3">
+              <View className="absolute right-3 top-1/2 transform -translate-y-1/2">
                 <ActivityIndicator size="small" color="#10b981" />
               </View>
+            )}
+            {!isSearching && searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-gray-300 items-center justify-center"
+              >
+                <Text className="text-gray-600 text-xs font-bold">×</Text>
+              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -279,23 +301,24 @@ export default function ListsScreen() {
               value={newListName}
               onChangeText={setNewListName}
               placeholder="Enter list name"
-              className="border border-gray-300 rounded-lg p-3 mb-4 text-base"
+              placeholderTextColor="#9CA3AF"
+              className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 mb-4 text-base text-gray-800 shadow-sm focus:border-green-500 focus:shadow-md"
               autoFocus
             />
             
-            <View className="flex-row space-x-3">
+            <View className="flex-row">
               <Button
                 title="Cancel"
                 onPress={() => {
                   setShowAddModal(false);
                   setNewListName('');
                 }}
-                className="flex-1 bg-gray-500"
+                className="flex-1 bg-gray-500 mr-3"
               />
               <Button
-                title={isCreating ? "Creating..." : "Create"}
+                title="Create"
                 onPress={handleCreateList}
-                disabled={isCreating}
+                loading={isCreating}
                 className="flex-1 bg-green-500"
               />
             </View>
