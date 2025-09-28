@@ -111,13 +111,13 @@ export const useCreateTask = () => {
         is_completed: false,
       };
 
-      // Optimistically update tasks by list
+      // Optimistically update tasks by list (keep at the beginning)
       queryClient.setQueryData(taskKeys.byList(newTask.list_id), (old: any) => {
         if (!old) return [optimisticTask];
         return [optimisticTask, ...old];
       });
 
-      // Optimistically update all tasks
+      // Optimistically update all tasks (keep at the beginning)
       queryClient.setQueryData(taskKeys.tasks(), (old: any) => {
         if (!old) return [optimisticTask];
         return [optimisticTask, ...old];
@@ -131,10 +131,32 @@ export const useCreateTask = () => {
         queryClient.setQueryData(taskKeys.byList(newTask.list_id), context.previousTasks);
       }
     },
-    onSuccess: (_, variables) => {
-      // Invalidate tasks and specific list tasks to get the real data
-      queryClient.invalidateQueries({ queryKey: taskKeys.tasks() });
-      queryClient.invalidateQueries({ queryKey: taskKeys.byList(variables.list_id) });
+    onSuccess: (newTaskData, variables) => {
+      // Update the optimistic task with real data while maintaining position at the top
+      queryClient.setQueryData(taskKeys.byList(variables.list_id), (old: any) => {
+        if (!old) return old;
+        // Find and update the optimistic task, keep it at the beginning
+        const updatedTasks = old.map((task: any) => 
+          task.id === Date.now() ? { ...newTaskData, id: newTaskData.id } : task
+        );
+        // Ensure the new task stays at the beginning
+        const newTask = updatedTasks.find((task: any) => task.id === newTaskData.id);
+        const otherTasks = updatedTasks.filter((task: any) => task.id !== newTaskData.id);
+        return newTask ? [newTask, ...otherTasks] : updatedTasks;
+      });
+      
+      // Update all tasks list as well
+      queryClient.setQueryData(taskKeys.tasks(), (old: any) => {
+        if (!old) return old;
+        const updatedTasks = old.map((task: any) => 
+          task.id === Date.now() ? { ...newTaskData, id: newTaskData.id } : task
+        );
+        const newTask = updatedTasks.find((task: any) => task.id === newTaskData.id);
+        const otherTasks = updatedTasks.filter((task: any) => task.id !== newTaskData.id);
+        return newTask ? [newTask, ...otherTasks] : updatedTasks;
+      });
+      
+      // Only invalidate other related queries, not the main ones
       queryClient.invalidateQueries({ queryKey: taskKeys.completed() });
       queryClient.invalidateQueries({ queryKey: taskKeys.upcoming() });
     },

@@ -15,7 +15,9 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:debug": "jest --detectOpenHandles --verbose",
-    "test:ci": "jest --ci --coverage --watchAll=false"
+    "test:ci": "jest --ci --coverage --watchAll=false",
+    "start:new-arch": "expo start --new-arch",
+    "build:new-arch": "expo prebuild --new-arch"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.0",

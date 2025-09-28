@@ -28,7 +28,7 @@ describe('ListItem Component', () => {
     expect(getByText(/Created:/)).toBeTruthy();
   });
 
-  it('calls onPress when list is pressed', () => {
+  it('calls onPress when list card is pressed', () => {
     const { getByText } = render(
       <ListItem
         list={mockList}
@@ -37,6 +37,7 @@ describe('ListItem Component', () => {
       />
     );
     
+    // Test pressing anywhere on the card
     fireEvent.press(getByText('Test List'));
     expect(mockOnPress).toHaveBeenCalledWith(mockList);
   });

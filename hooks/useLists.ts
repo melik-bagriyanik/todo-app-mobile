@@ -90,10 +90,32 @@ export const useCreateList = () => {
         queryClient.setQueryData(listKeys.lists(), context.previousLists);
       }
     },
-    onSuccess: () => {
-      // Invalidate and refetch lists to get the real data
-      queryClient.invalidateQueries({ queryKey: listKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: listKeys.recent() });
+    onSuccess: (newListData) => {
+      // Update the optimistic list with real data while maintaining position at the top
+      queryClient.setQueryData(listKeys.lists(), (old: any) => {
+        if (!old) return old;
+        // Find and update the optimistic list, keep it at the beginning
+        const updatedLists = old.map((list: any) => 
+          list.id === Date.now() ? { ...newListData, id: newListData.id } : list
+        );
+        // Ensure the new list stays at the beginning
+        const newList = updatedLists.find((list: any) => list.id === newListData.id);
+        const otherLists = updatedLists.filter((list: any) => list.id !== newListData.id);
+        return newList ? [newList, ...otherLists] : updatedLists;
+      });
+      
+      // Update recent lists as well
+      queryClient.setQueryData(listKeys.recent(), (old: any) => {
+        if (!old) return old;
+        const updatedLists = old.map((list: any) => 
+          list.id === Date.now() ? { ...newListData, id: newListData.id } : list
+        );
+        const newList = updatedLists.find((list: any) => list.id === newListData.id);
+        const otherLists = updatedLists.filter((list: any) => list.id !== newListData.id);
+        return newList ? [newList, ...otherLists.slice(0, 4)] : updatedLists;
+      });
+      
+      // Don't invalidate the main queries to maintain order
     },
   });
 };
