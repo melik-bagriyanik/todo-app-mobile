@@ -1,3 +1,7 @@
+/**
+ * TaskPriorityBadge - Visual indicator for task priority levels
+ * Features: Color-coded priority display, consistent styling
+ */
 import React from 'react';
 import { Text } from 'react-native';
 import { Priority } from '@/types';
@@ -11,17 +15,16 @@ export const TaskPriorityBadge: React.FC<TaskPriorityBadgeProps> = ({
   priority,
   className = '',
 }) => {
-  const getPriorityStyles = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-500 text-white shadow-sm';
-      case 'medium':
-        return 'bg-yellow-500 text-white shadow-sm';
-      case 'low':
-        return 'bg-green-500 text-white shadow-sm';
-      default:
-        return 'bg-gray-500 text-white shadow-sm';
-    }
+  /**
+   * Returns the appropriate styles for priority level
+   */
+  const getPriorityStyles = (priority: string): string => {
+    const priorityStyles = {
+      high: 'bg-red-500 text-white shadow-sm',
+      medium: 'bg-yellow-500 text-white shadow-sm',
+      low: 'bg-green-500 text-white shadow-sm',
+    };
+    return priorityStyles[priority as keyof typeof priorityStyles] || 'bg-gray-500 text-white shadow-sm';
   };
 
   return (

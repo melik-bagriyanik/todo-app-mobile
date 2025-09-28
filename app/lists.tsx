@@ -1,3 +1,7 @@
+/**
+ * Lists Screen - Displays and manages task lists
+ * Features: Search, CRUD operations with optimistic updates
+ */
 import React, { useState } from 'react';
 import { View, Text, FlatList, Alert, RefreshControl, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
@@ -16,12 +20,15 @@ import { CreateListSchema } from '@/validation/schemas';
 import { validateWithAlert, validateFormInput } from '@/validation/utils';
 
 export default function ListsScreen() {
+  //  STATE MANAGEMENT 
+  
+  // Local state
   const [newListName, setNewListName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingListId, setDeletingListId] = useState<number | null>(null);
   const router = useRouter();
 
-  // Zustand stores
+  // UI state from Zustand store
   const {
     isCreateListModalOpen,
     isCreatingList,
@@ -30,8 +37,9 @@ export default function ListsScreen() {
     setCreatingList,
   } = useUIStore();
 
-
-  // TanStack Query hooks
+  //  DATA FETCHING 
+  
+  // Fetch all lists
   const {
     data: lists = [],
     isLoading: loading,
@@ -40,18 +48,27 @@ export default function ListsScreen() {
     isRefetching: refreshing,
   } = useLists();
 
+  // Search functionality
   const {
     data: searchResults = [],
     isLoading: isSearching,
   } = useSearchLists(searchQuery);
 
+  //  MUTATIONS 
+  
   const createListMutation = useCreateList();
   const deleteListMutation = useDeleteList();
 
-  // Determine which data to display based on search
+  //  DATA PROCESSING 
+  
+  // Determine which lists to display based on search
   const displayLists = searchQuery.trim() ? searchResults : lists;
 
-  // Create new list
+  // EVENT HANDLERS 
+  
+  /**
+   * Creates a new list with validation and duplicate checking
+   */
   const handleCreateList = async () => {
     // Validate list name
     const nameValidation = validateFormInput(newListName, 1, 50, 'List name');
@@ -97,7 +114,9 @@ export default function ListsScreen() {
     });
   };
 
-  // Delete list with confirmation
+  /**
+   * Deletes a list with confirmation dialog
+   */
   const handleDeleteList = (list: List) => {
     Alert.alert(
       'Delete List',
@@ -126,7 +145,9 @@ export default function ListsScreen() {
     );
   };
 
-  // Navigate to tasks for a specific list
+  /**
+   * Navigates to the tasks screen for a specific list
+   */
   const handleListPress = (list: List) => {
     router.push({
       pathname: '/tasks',

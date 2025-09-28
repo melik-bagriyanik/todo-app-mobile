@@ -1,3 +1,7 @@
+/**
+ * TaskStatusSelector - Dropdown component for selecting task status
+ * Features: Modal dropdown, visual indicators, loading states
+ */
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +12,8 @@ interface TaskStatusSelectorProps {
   disabled?: boolean;
   isLoading?: boolean;
 }
+
+// ==================== CONSTANTS ====================
 
 const statusOptions = [
   { value: 'pending', label: 'Pending', color: 'bg-gray-500', icon: 'time-outline' },
@@ -21,10 +27,19 @@ export const TaskStatusSelector: React.FC<TaskStatusSelectorProps> = ({
   disabled = false,
   isLoading = false,
 }) => {
+  // ==================== STATE MANAGEMENT ====================
+  
   const [isOpen, setIsOpen] = useState(false);
 
+  // ==================== COMPUTED VALUES ====================
+  
   const currentOption = statusOptions.find(option => option.value === currentStatus) || statusOptions[0];
 
+  // ==================== EVENT HANDLERS ====================
+  
+  /**
+   * Handles status selection and closes modal
+   */
   const handleStatusSelect = (status: string) => {
     onStatusChange(status);
     setIsOpen(false);

@@ -1,3 +1,7 @@
+/**
+ * Custom hooks for task management using TanStack Query
+ * Provides optimistic updates and proper cache management
+ */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createTask,
@@ -15,7 +19,10 @@ import {
   updateTaskStatus,
 } from '@/queries/tasks';
 
-// Query Keys
+/**
+ * Query key factory for task-related queries
+ * Ensures consistent cache invalidation and query management
+ */
 export const taskKeys = {
   all: ['tasks'] as const,
   tasks: () => [...taskKeys.all, 'task'] as const,
@@ -28,7 +35,11 @@ export const taskKeys = {
   search: (searchTerm: string) => [...taskKeys.tasks(), 'search', searchTerm] as const,
 };
 
-// Hooks for fetching data
+//  QUERY HOOKS 
+
+/**
+ * Fetches all tasks
+ */
 export const useTasks = () => {
   return useQuery({
     queryKey: taskKeys.tasks(),
@@ -36,6 +47,9 @@ export const useTasks = () => {
   });
 };
 
+/**
+ * Fetches a single task by ID
+ */
 export const useTask = (id: number) => {
   return useQuery({
     queryKey: taskKeys.task(id),
@@ -44,6 +58,9 @@ export const useTask = (id: number) => {
   });
 };
 
+/**
+ * Fetches all tasks for a specific list
+ */
 export const useTasksByList = (listId: number) => {
   return useQuery({
     queryKey: taskKeys.byList(listId),
@@ -52,6 +69,9 @@ export const useTasksByList = (listId: number) => {
   });
 };
 
+/**
+ * Fetches tasks filtered by status
+ */
 export const useTasksByStatus = (status: string) => {
   return useQuery({
     queryKey: taskKeys.byStatus(status),
@@ -60,6 +80,9 @@ export const useTasksByStatus = (status: string) => {
   });
 };
 
+/**
+ * Fetches tasks filtered by priority
+ */
 export const useTasksByPriority = (priority: string) => {
   return useQuery({
     queryKey: taskKeys.byPriority(priority),
@@ -68,6 +91,9 @@ export const useTasksByPriority = (priority: string) => {
   });
 };
 
+/**
+ * Fetches all completed tasks
+ */
 export const useCompletedTasks = () => {
   return useQuery({
     queryKey: taskKeys.completed(),
@@ -75,6 +101,9 @@ export const useCompletedTasks = () => {
   });
 };
 
+/**
+ * Fetches upcoming tasks (due soon)
+ */
 export const useUpcomingTasks = () => {
   return useQuery({
     queryKey: taskKeys.upcoming(),
@@ -82,6 +111,9 @@ export const useUpcomingTasks = () => {
   });
 };
 
+/**
+ * Searches tasks by name
+ */
 export const useSearchTasks = (searchTerm: string) => {
   return useQuery({
     queryKey: taskKeys.search(searchTerm),
@@ -90,7 +122,48 @@ export const useSearchTasks = (searchTerm: string) => {
   });
 };
 
-// Mutation hooks
+//  OPTIMISTIC UPDATE HELPERS 
+
+/**
+ * Creates an optimistic task with temporary ID
+ */
+const createOptimisticTask = (newTask: any) => ({
+  id: Date.now(), // Temporary ID
+  ...newTask,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  is_completed: false,
+});
+
+/**
+ * Updates task completion status optimistically
+ */
+const updateTaskCompletionStatus = (task: any, isCompleted: boolean) => ({
+  ...task,
+  is_completed: isCompleted,
+  status: isCompleted ? 'completed' : 'pending',
+  updated_at: new Date().toISOString(),
+});
+
+/**
+ * Filters tasks based on status filter
+ */
+const filterTasksByStatus = (tasks: any[], filter: string) => {
+  if (!filter || filter === 'all') return tasks;
+  
+  return tasks.filter((task: any) => {
+    if (filter === 'completed') return task.is_completed;
+    if (filter === 'pending') return !task.is_completed && task.status === 'pending';
+    if (filter === 'in_progress') return task.status === 'in_progress';
+    return true;
+  });
+};
+
+//  MUTATION HOOKS 
+
+/**
+ * Hook for creating new tasks with optimistic updates
+ */
 export const useCreateTask = () => {
   const queryClient = useQueryClient();
 
@@ -103,14 +176,8 @@ export const useCreateTask = () => {
       // Snapshot the previous value
       const previousTasks = queryClient.getQueryData(taskKeys.byList(newTask.list_id));
 
-      // Create optimistic task
-      const optimisticTask = {
-        id: Date.now(), // Temporary ID
-        ...newTask,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        is_completed: false,
-      };
+      // Create optimistic task using helper function
+      const optimisticTask = createOptimisticTask(newTask);
 
       // Optimistically update tasks by list (keep at the beginning)
       queryClient.setQueryData(taskKeys.byList(newTask.list_id), (old: any) => {
@@ -127,43 +194,38 @@ export const useCreateTask = () => {
       return { previousTasks, optimisticTask };
     },
     onError: (err, newTask, context) => {
-      // If the mutation fails, use the context returned from onMutate to roll back
+      // Rollback optimistic updates on error
       if (context?.previousTasks) {
         queryClient.setQueryData(taskKeys.byList(newTask.list_id), context.previousTasks);
       }
     },
     onSuccess: (newTaskData, variables) => {
       // Update the optimistic task with real data while maintaining position at the top
-      queryClient.setQueryData(taskKeys.byList(variables.list_id), (old: any) => {
-        if (!old) return old;
-        // Find and update the optimistic task, keep it at the beginning
-        const updatedTasks = old.map((task: any) => 
-          task.id === Date.now() ? { ...newTaskData, id: newTaskData.id } : task
-        );
-        // Ensure the new task stays at the beginning
-        const newTask = updatedTasks.find((task: any) => task.id === newTaskData.id);
-        const otherTasks = updatedTasks.filter((task: any) => task.id !== newTaskData.id);
-        return newTask ? [newTask, ...otherTasks] : updatedTasks;
-      });
+      const updateTaskInQuery = (queryKey: readonly string[]) => {
+        queryClient.setQueryData(queryKey as any, (old: any) => {
+          if (!old) return old;
+          const updatedTasks = old.map((task: any) => 
+            task.id === Date.now() ? { ...newTaskData, id: (newTaskData as any).id } : task
+          );
+          const newTask = updatedTasks.find((task: any) => task.id === (newTaskData as any).id);
+          const otherTasks = updatedTasks.filter((task: any) => task.id !== (newTaskData as any).id);
+          return newTask ? [newTask, ...otherTasks] : updatedTasks;
+        });
+      };
+
+      updateTaskInQuery(taskKeys.byList(variables.list_id));
+      updateTaskInQuery(taskKeys.tasks());
       
-      // Update all tasks list as well
-      queryClient.setQueryData(taskKeys.tasks(), (old: any) => {
-        if (!old) return old;
-        const updatedTasks = old.map((task: any) => 
-          task.id === Date.now() ? { ...newTaskData, id: newTaskData.id } : task
-        );
-        const newTask = updatedTasks.find((task: any) => task.id === newTaskData.id);
-        const otherTasks = updatedTasks.filter((task: any) => task.id !== newTaskData.id);
-        return newTask ? [newTask, ...otherTasks] : updatedTasks;
-      });
-      
-      // Only invalidate other related queries, not the main ones
+      // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: taskKeys.completed() });
       queryClient.invalidateQueries({ queryKey: taskKeys.upcoming() });
     },
   });
 };
 
+/**
+ * Hook for updating existing tasks
+ */
 export const useUpdateTask = () => {
   const queryClient = useQueryClient();
 
@@ -195,6 +257,9 @@ export const useUpdateTask = () => {
   });
 };
 
+/**
+ * Hook for toggling task completion status with optimistic updates
+ */
 export const useToggleTaskCompletion = () => {
   const queryClient = useQueryClient();
 
@@ -208,25 +273,20 @@ export const useToggleTaskCompletion = () => {
       // Snapshot the previous value
       const previousTask = queryClient.getQueryData(taskKeys.task(id));
 
-      // Optimistically update the task
+      // Helper function to update task completion status
+      const updateTaskStatus = (task: any) => 
+        task.id === id ? updateTaskCompletionStatus(task, isCompleted) : task;
+
+      // Optimistically update the individual task
       queryClient.setQueryData(taskKeys.task(id), (old: any) => {
         if (!old) return old;
-        return {
-          ...old,
-          is_completed: isCompleted,
-          status: isCompleted ? 'completed' : 'pending',
-          updated_at: new Date().toISOString(),
-        };
+        return updateTaskCompletionStatus(old, isCompleted);
       });
 
       // Optimistically update tasks list
       queryClient.setQueryData(taskKeys.tasks(), (old: any) => {
         if (!old) return old;
-        return old.map((task: any) => 
-          task.id === id 
-            ? { ...task, is_completed: isCompleted, status: isCompleted ? 'completed' : 'pending', updated_at: new Date().toISOString() }
-            : task
-        );
+        return old.map(updateTaskStatus);
       });
 
       // Optimistically update tasks by list
@@ -234,11 +294,7 @@ export const useToggleTaskCompletion = () => {
         { queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byList' },
         (old: any) => {
           if (!old) return old;
-          return old.map((task: any) => 
-            task.id === id 
-              ? { ...task, is_completed: isCompleted, status: isCompleted ? 'completed' : 'pending', updated_at: new Date().toISOString() }
-              : task
-          );
+          return old.map(updateTaskStatus);
         }
       );
 
@@ -247,46 +303,41 @@ export const useToggleTaskCompletion = () => {
         { queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byStatus' },
         (old: any, query: any) => {
           if (!old) return old;
-          const updatedTasks = old.map((task: any) => 
-            task.id === id 
-              ? { ...task, is_completed: isCompleted, status: isCompleted ? 'completed' : 'pending', updated_at: new Date().toISOString() }
-              : task
-          );
+          const updatedTasks = old.map(updateTaskStatus);
           
           // Get the current filter status from query key
           const currentFilter = query?.queryKey?.[3];
-          if (currentFilter && currentFilter !== 'all') {
-            // Filter out tasks that don't match the current status filter
-            return updatedTasks.filter((task: any) => {
-              if (currentFilter === 'completed') return task.is_completed;
-              if (currentFilter === 'pending') return !task.is_completed && task.status === 'pending';
-              if (currentFilter === 'in_progress') return task.status === 'in_progress';
-              return true;
-            });
-          }
-          return updatedTasks;
+          return filterTasksByStatus(updatedTasks, currentFilter);
         }
       );
 
-      // Return a context object with the snapshotted value
       return { previousTask };
     },
     onError: (err, { id }, context) => {
-      // If the mutation fails, use the context returned from onMutate to roll back
+      // Rollback optimistic updates on error
       if (context?.previousTask) {
         queryClient.setQueryData(taskKeys.task(id), context.previousTask);
       }
     },
     onSuccess: (_, { id }) => {
       // Invalidate filter queries to refresh them
-      queryClient.invalidateQueries({ queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byStatus' });
-      queryClient.invalidateQueries({ queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byPriority' });
+      queryClient.invalidateQueries({ 
+        queryKey: taskKeys.tasks(), 
+        predicate: (query) => query.queryKey[2] === 'byStatus' 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: taskKeys.tasks(), 
+        predicate: (query) => query.queryKey[2] === 'byPriority' 
+      });
       queryClient.invalidateQueries({ queryKey: taskKeys.completed() });
       queryClient.invalidateQueries({ queryKey: taskKeys.upcoming() });
     },
   });
 };
 
+/**
+ * Hook for deleting tasks with optimistic updates
+ */
 export const useDeleteTask = () => {
   const queryClient = useQueryClient();
 
@@ -307,36 +358,33 @@ export const useDeleteTask = () => {
         ? queryClient.getQueryData(taskKeys.byList(taskToDelete.list_id))
         : null;
 
+      // Helper function to remove task from query data
+      const removeTaskFromQuery = (old: any) => {
+        if (!old) return [];
+        return old.filter((task: any) => task.id !== taskId);
+      };
+
       // Optimistically remove the task from all queries
       queryClient.setQueryData(taskKeys.task(taskId), undefined);
       
       // Remove from main tasks list
-      queryClient.setQueryData(taskKeys.tasks(), (old: any) => {
-        if (!old) return [];
-        return old.filter((task: any) => task.id !== taskId);
-      });
+      queryClient.setQueryData(taskKeys.tasks(), removeTaskFromQuery);
 
       // Remove from tasks by list for the specific list
       if (taskToDelete) {
-        queryClient.setQueryData(taskKeys.byList(taskToDelete.list_id), (old: any) => {
-          if (!old) return [];
-          return old.filter((task: any) => task.id !== taskId);
-        });
+        queryClient.setQueryData(taskKeys.byList(taskToDelete.list_id), removeTaskFromQuery);
       }
 
       // Remove from all tasks by list queries
       queryClient.setQueriesData(
         { queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byList' },
-        (old: any) => {
-          if (!old) return [];
-          return old.filter((task: any) => task.id !== taskId);
-        }
+        removeTaskFromQuery
       );
 
       return { previousTask, previousTasksByList, taskToDelete };
     },
     onError: (err, taskId, context) => {
-      // If the mutation fails, use the context returned from onMutate to roll back
+      // Rollback optimistic updates on error
       if (context?.previousTask) {
         queryClient.setQueryData(taskKeys.task(taskId), context.previousTask);
       }
@@ -354,7 +402,6 @@ export const useDeleteTask = () => {
       }
     },
     onSuccess: () => {
-      // Don't invalidate queries - optimistic update is sufficient
       // Only invalidate related queries that don't include the deleted task
       queryClient.invalidateQueries({ queryKey: taskKeys.completed() });
       queryClient.invalidateQueries({ queryKey: taskKeys.upcoming() });
@@ -362,6 +409,9 @@ export const useDeleteTask = () => {
   });
 };
 
+/**
+ * Hook for updating task status with optimistic updates
+ */
 export const useUpdateTaskStatus = () => {
   const queryClient = useQueryClient();
 
@@ -379,12 +429,14 @@ export const useUpdateTaskStatus = () => {
       // Optimistically update the task status and completion status
       const isCompleted = status === 'completed';
       
+      // Helper function to update task status
+      const updateTaskStatusInQuery = (task: any) =>
+        task.id === id ? updateTaskCompletionStatus({ ...task, status }, isCompleted) : task;
+      
       // Update all task queries
       queryClient.setQueryData(taskKeys.tasks(), (old: any) => {
         if (!old) return old;
-        return old.map((task: any) =>
-          task.id === id ? { ...task, status, is_completed: isCompleted } : task
-        );
+        return old.map(updateTaskStatusInQuery);
       });
 
       // Update tasks by list queries for all lists
@@ -392,9 +444,7 @@ export const useUpdateTaskStatus = () => {
         { queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byList' },
         (old: any) => {
           if (!old) return old;
-          return old.map((task: any) =>
-            task.id === id ? { ...task, status, is_completed: isCompleted } : task
-          );
+          return old.map(updateTaskStatusInQuery);
         }
       );
 
@@ -403,24 +453,11 @@ export const useUpdateTaskStatus = () => {
         { queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byStatus' },
         (old: any, query: any) => {
           if (!old) return old;
-          const updatedTasks = old.map((task: any) => 
-            task.id === id 
-              ? { ...task, is_completed: isCompleted, status: isCompleted ? 'completed' : 'pending', updated_at: new Date().toISOString() }
-              : task
-          );
+          const updatedTasks = old.map(updateTaskStatusInQuery);
           
           // Get the current filter status from query key
           const currentFilter = query?.queryKey?.[3];
-          if (currentFilter && currentFilter !== 'all') {
-            // Filter out tasks that don't match the current status filter
-            return updatedTasks.filter((task: any) => {
-              if (currentFilter === 'completed') return task.is_completed;
-              if (currentFilter === 'pending') return !task.is_completed && task.status === 'pending';
-              if (currentFilter === 'in_progress') return task.status === 'in_progress';
-              return true;
-            });
-          }
-          return updatedTasks;
+          return filterTasksByStatus(updatedTasks, currentFilter);
         }
       );
 
@@ -429,11 +466,7 @@ export const useUpdateTaskStatus = () => {
         { queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byPriority' },
         (old: any) => {
           if (!old) return old;
-          return old.map((task: any) => 
-            task.id === id 
-              ? { ...task, is_completed: isCompleted, status: isCompleted ? 'completed' : 'pending', updated_at: new Date().toISOString() }
-              : task
-          );
+          return old.map(updateTaskStatusInQuery);
         }
       );
 
@@ -446,7 +479,7 @@ export const useUpdateTaskStatus = () => {
       return { previousTasks, previousTasksByList };
     },
     onError: (err, { id }, context) => {
-      // If the mutation fails, use the context returned from onMutate to roll back
+      // Rollback optimistic updates on error
       if (context?.previousTasks) {
         queryClient.setQueryData(taskKeys.tasks(), context.previousTasks);
       }
@@ -456,8 +489,14 @@ export const useUpdateTaskStatus = () => {
     },
     onSuccess: () => {
       // Invalidate filter queries to refresh them
-      queryClient.invalidateQueries({ queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byStatus' });
-      queryClient.invalidateQueries({ queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byPriority' });
+      queryClient.invalidateQueries({ 
+        queryKey: taskKeys.tasks(), 
+        predicate: (query) => query.queryKey[2] === 'byStatus' 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: taskKeys.tasks(), 
+        predicate: (query) => query.queryKey[2] === 'byPriority' 
+      });
       queryClient.invalidateQueries({ queryKey: taskKeys.completed() });
       queryClient.invalidateQueries({ queryKey: taskKeys.upcoming() });
     },

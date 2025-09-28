@@ -1,3 +1,7 @@
+/**
+ * TaskFilter - Filter component for tasks by status and priority
+ * Features: Status filtering, priority filtering, visual indicators
+ */
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Priority } from '@/types';
@@ -15,29 +19,40 @@ export const TaskFilter: React.FC<TaskFilterProps> = ({
   onStatusFilter,
   onPriorityFilter,
 }) => {
+  //  CONSTANTS 
+  
   const statusOptions = ['all', 'pending', 'in_progress', 'completed'];
   const priorityOptions: (Priority | 'all')[] = ['all', 'low', 'medium', 'high'];
 
-  const getPriorityColor = (priority: string, isSelected: boolean) => {
+  //  HELPER FUNCTIONS 
+  
+  /**
+   * Returns the appropriate color classes for priority filter buttons
+   */
+  const getPriorityColor = (priority: string, isSelected: boolean): string => {
     if (isSelected) {
-      switch (priority) {
-        case 'high': return 'bg-red-500 border-red-500';
-        case 'medium': return 'bg-yellow-500 border-yellow-500';
-        case 'low': return 'bg-green-500 border-green-500';
-        default: return 'bg-gray-500 border-gray-500';
-      }
+      const selectedColors = {
+        high: 'bg-red-500 border-red-500',
+        medium: 'bg-yellow-500 border-yellow-500',
+        low: 'bg-green-500 border-green-500',
+      };
+      return selectedColors[priority as keyof typeof selectedColors] || 'bg-gray-500 border-gray-500';
     }
     return 'bg-white border-gray-300';
   };
 
-  const getTextColor = (priority: string, isSelected: boolean) => {
+  /**
+   * Returns the appropriate text color for priority filter buttons
+   */
+  const getTextColor = (priority: string, isSelected: boolean): string => {
     if (isSelected) return 'text-white';
-    switch (priority) {
-      case 'high': return 'text-red-600';
-      case 'medium': return 'text-yellow-600';
-      case 'low': return 'text-green-600';
-      default: return 'text-gray-700';
-    }
+    
+    const textColors = {
+      high: 'text-red-600',
+      medium: 'text-yellow-600',
+      low: 'text-green-600',
+    };
+    return textColors[priority as keyof typeof textColors] || 'text-gray-700';
   };
 
   return (

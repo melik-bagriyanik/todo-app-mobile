@@ -1,3 +1,7 @@
+/**
+ * Tasks Screen - Displays and manages tasks for a specific list
+ * Features: Search, filtering, CRUD operations with optimistic updates
+ */
 import React, { useState } from 'react';
 import { View, Alert } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
@@ -26,16 +30,19 @@ import { CreateTaskSchema } from '@/validation/schemas';
 import { validateWithAlert, validateFormInput } from '@/validation/utils';
 
 export default function TasksScreen() {
+  // Get list parameters from navigation
   const { listId, listName } = useLocalSearchParams<{
     listId: string;
     listName: string;
   }>();
+  
+  // Local state for search and filtering
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
 
-  // Zustand stores
+  // UI state from Zustand store
   const {
     isCreateTaskModalOpen,
     isCreatingTask,
@@ -43,16 +50,12 @@ export default function TasksScreen() {
     closeCreateTaskModal,
   } = useUIStore();
 
-  // Default values
-  const defaultTaskPriority = 'medium';
-  const defaultTaskStatus = 'pending';
-  const showCompletedTasks = true;
-  const showTaskDescriptions = true;
-  const compactView = false;
-
+  // Convert listId to number for API calls
   const listIdNumber = parseInt(listId || '0');
 
-  // TanStack Query hooks
+  //  DATA FETCHING 
+  
+  // Fetch tasks for the current list
   const {
     data: tasks = [],
     isLoading: loading,
@@ -61,30 +64,39 @@ export default function TasksScreen() {
     isRefetching: refreshing,
   } = useTasksByList(listIdNumber);
 
+  // Search functionality
   const {
     data: searchResults = [],
     isLoading: isSearching,
   } = useSearchTasks(searchQuery);
 
+  // Status filtering
   const {
     data: statusFilteredTasks = [],
     isLoading: isStatusFiltering,
   } = useTasksByStatus(filterStatus === 'all' ? '' : filterStatus);
 
+  // Priority filtering
   const {
     data: priorityFilteredTasks = [],
     isLoading: isPriorityFiltering,
   } = useTasksByPriority(filterPriority === 'all' ? '' : filterPriority);
 
-  // Show loading when switching tabs
+  // Combined filter loading state
   const isFilterLoading = isStatusFiltering || isPriorityFiltering;
 
+  //  MUTATIONS 
+  
   const createTaskMutation = useCreateTask();
   const deleteTaskMutation = useDeleteTask();
   const toggleTaskMutation = useToggleTaskCompletion();
   const updateStatusMutation = useUpdateTaskStatus();
 
-  // Determine which data to display based on search and filters
+  //  DATA FILTERING 
+  
+  /**
+   * Determines which tasks to display based on current filters and search
+   */
   const getDisplayTasks = () => {
     if (searchQuery.trim()) {
       return searchResults.filter(task => task.list_id === listIdNumber);
@@ -112,16 +124,25 @@ export default function TasksScreen() {
   const isFiltering = isStatusFiltering || isPriorityFiltering;
   const isSearchingOrFiltering = isSearching || isFiltering;
 
-  // Filter handlers
+  //  EVENT HANDLERS 
+  
+  /**
+   * Handles status filter changes
+   */
   const handleStatusFilter = (status: string) => {
     setFilterStatus(status);
   };
 
+  /**
+   * Handles priority filter changes
+   */
   const handlePriorityFilter = (priority: string) => {
     setFilterPriority(priority);
   };
 
-  // Create new task
+  /**
+   * Creates a new task with validation and duplicate checking
+   */
   const handleCreateTask = async (taskData: any) => {
     // Check for duplicate task name in the same list
     const trimmedName = taskData.name.trim();
@@ -161,7 +182,9 @@ export default function TasksScreen() {
     });
   };
 
-  // Toggle task completion with optimistic update
+  /**
+   * Toggles task completion status with optimistic updates
+   */
   const handleToggleTask = async (task: Task) => {
     const newCompletionStatus = !task.is_completed;
 
@@ -179,7 +202,9 @@ export default function TasksScreen() {
     });
   };
 
-  // Handle task status change
+  /**
+   * Updates task status with optimistic updates
+   */
   const handleStatusChange = async (task: Task, newStatus: string) => {
     updateStatusMutation.mutate({
       id: task.id,
@@ -195,7 +220,9 @@ export default function TasksScreen() {
     });
   };
 
-  // Delete task with confirmation
+  /**
+   * Deletes a task with confirmation dialog
+   */
   const handleDeleteTask = (task: Task) => {
     Alert.alert(
       'Delete Task',
@@ -225,6 +252,9 @@ export default function TasksScreen() {
   };
 
 
+  //  RENDER CONDITIONS 
+  
+  // Show loading state
   if (loading) {
     return (
       <Container>
@@ -234,6 +264,7 @@ export default function TasksScreen() {
     );
   }
 
+  // Show error state
   if (error) {
     return (
       <Container>
@@ -243,12 +274,14 @@ export default function TasksScreen() {
     );
   }
 
+  //  MAIN RENDER 
+  
   return (
     <Container>
       <Stack.Screen options={{ title: listName }} />
       
       <View className="flex-1">
-        {/* Search Bar */}
+        {/* Search functionality */}
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -257,7 +290,7 @@ export default function TasksScreen() {
           onClear={() => setSearchQuery('')}
         />
 
-        {/* Filter Buttons */}
+        {/* Filter controls */}
         <TaskFilter
           statusFilter={filterStatus}
           priorityFilter={filterPriority}
@@ -265,6 +298,7 @@ export default function TasksScreen() {
           onPriorityFilter={handlePriorityFilter}
         />
 
+        {/* Add task button */}
         <View className="mb-4">
           <Button
             title="Add New Task"
@@ -273,6 +307,7 @@ export default function TasksScreen() {
           />
         </View>
 
+        {/* Task list with all functionality */}
         <TaskList
           tasks={displayTasks}
           onToggleTask={handleToggleTask}
@@ -292,7 +327,7 @@ export default function TasksScreen() {
         />
       </View>
 
-      {/* Add Task Modal */}
+      {/* Create task modal */}
       <CreateTaskModal
         visible={isCreateTaskModalOpen}
         onClose={closeCreateTaskModal}

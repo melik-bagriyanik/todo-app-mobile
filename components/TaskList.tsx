@@ -1,3 +1,7 @@
+/**
+ * TaskList - List component for displaying tasks
+ * Features: Pull-to-refresh, empty states, loading states, task management
+ */
 import React from 'react';
 import { View, Text, FlatList, RefreshControl, ActivityIndicator } from 'react-native';
 import { Task } from '@/types';
@@ -30,6 +34,11 @@ export const TaskList: React.FC<TaskListProps> = ({
   searchOrFilterMessage = 'Searching tasks...',
   deletingTaskId = null,
 }) => {
+  // ==================== RENDER FUNCTIONS ====================
+  
+  /**
+   * Renders individual task items
+   */
   const renderTask = ({ item }: { item: Task }) => (
     <TaskItem
       task={item}
@@ -41,22 +50,34 @@ export const TaskList: React.FC<TaskListProps> = ({
     />
   );
 
+  /**
+   * Renders empty state when no tasks are found
+   */
+  const renderEmptyState = () => (
+    <View className="flex-1 justify-center items-center">
+      <Text className="text-lg text-gray-600 mb-4">{emptyMessage}</Text>
+      <Text className="text-sm text-gray-500 text-center">{emptySubMessage}</Text>
+    </View>
+  );
+
+  /**
+   * Renders loading state when searching or filtering
+   */
+  const renderLoadingState = () => (
+    <View className="flex-1 justify-center items-center">
+      <ActivityIndicator size="large" color="#10b981" />
+      <Text className="text-lg text-gray-600 mt-4">{searchOrFilterMessage}</Text>
+    </View>
+  );
+
+  // ==================== RENDER CONDITIONS ====================
+  
   if (tasks.length === 0 && !isSearchingOrFiltering) {
-    return (
-      <View className="flex-1 justify-center items-center">
-        <Text className="text-lg text-gray-600 mb-4">{emptyMessage}</Text>
-        <Text className="text-sm text-gray-500 text-center">{emptySubMessage}</Text>
-      </View>
-    );
+    return renderEmptyState();
   }
 
   if (isSearchingOrFiltering) {
-    return (
-      <View className="flex-1 justify-center items-center">
-        <ActivityIndicator size="large" color="#10b981" />
-        <Text className="text-lg text-gray-600 mt-4">{searchOrFilterMessage}</Text>
-      </View>
-    );
+    return renderLoadingState();
   }
 
   return (

@@ -1,3 +1,7 @@
+/**
+ * CreateTaskModal - Modal component for creating new tasks
+ * Features: Form validation, priority selection, due date input
+ */
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Modal, ScrollView, TouchableOpacity } from 'react-native';
 import { Button } from './Button';
@@ -26,26 +30,54 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   isLoading = false,
   title = 'Create New Task',
 }) => {
+  //  STATE MANAGEMENT 
+  
   const [taskName, setTaskName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [priority, setPriority] = useState<Priority>('medium');
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState('pending');
 
-  // Reset form when modal opens
+  //  EFFECTS 
+  
+  /**
+   * Reset form when modal opens
+   */
   useEffect(() => {
     if (visible) {
-      setTaskName('');
-      setTaskDescription('');
-      setPriority('medium');
-      setDueDate('');
-      setStatus('pending');
+      resetForm();
     }
   }, [visible]);
 
+  //  HELPER FUNCTIONS 
+  
+  /**
+   * Resets all form fields to default values
+   */
+  const resetForm = () => {
+    setTaskName('');
+    setTaskDescription('');
+    setPriority('medium');
+    setDueDate('');
+    setStatus('pending');
+  };
+
+  /**
+   * Validates due date format
+   */
+  const validateDueDate = (date: string): boolean => {
+    if (!date) return true;
+    return /^\d{4}-\d{2}-\d{2}$/.test(date);
+  };
+
+  //  EVENT HANDLERS 
+  
+  /**
+   * Handles form submission with validation
+   */
   const handleSubmit = () => {
     // Validate due date format if provided
-    if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+    if (!validateDueDate(dueDate)) {
       alert('Due date must be in YYYY-MM-DD format (e.g., 2024-12-31)');
       return;
     }
@@ -60,32 +92,26 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     onSubmit(taskData);
   };
 
+  /**
+   * Handles modal close and form reset
+   */
   const handleClose = () => {
-    setTaskName('');
-    setTaskDescription('');
-    setPriority('medium');
-    setDueDate('');
-    setStatus('pending');
+    resetForm();
     onClose();
   };
 
-  const getPriorityColor = (p: Priority) => {
-    switch (p) {
-      case 'high': return 'bg-red-500';
-      case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-green-500';
-      default: return 'bg-gray-500';
-    }
+  /**
+   * Returns the appropriate color class for priority
+   */
+  const getPriorityColor = (p: Priority): string => {
+    const colorMap = {
+      high: 'bg-red-500',
+      medium: 'bg-yellow-500',
+      low: 'bg-green-500',
+    };
+    return colorMap[p] || 'bg-gray-500';
   };
 
-  const getStatusColor = (s: string) => {
-    switch (s) {
-      case 'completed': return 'bg-green-500';
-      case 'in_progress': return 'bg-blue-500';
-      case 'pending': return 'bg-gray-500';
-      default: return 'bg-gray-500';
-    }
-  };
 
   return (
     <Modal

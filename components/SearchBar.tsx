@@ -1,3 +1,7 @@
+/**
+ * SearchBar - Reusable search input component
+ * Features: Loading indicator, clear button, customizable styling
+ */
 import React from 'react';
 import { View, TextInput, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
 

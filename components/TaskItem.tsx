@@ -1,3 +1,7 @@
+/**
+ * TaskItem - Individual task display component
+ * Features: Toggle completion, status change, delete, haptic feedback
+ */
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Task, Priority } from '@/types';
@@ -15,39 +19,57 @@ interface TaskItemProps {
   isProcessing?: boolean;
 }
 
-export const TaskItem = ({ task, onToggle, onDelete, onStatusChange, isDeleting = false, isProcessing = false }: TaskItemProps) => {
+export const TaskItem = ({ 
+  task, 
+  onToggle, 
+  onDelete, 
+  onStatusChange, 
+  isDeleting = false, 
+  isProcessing = false 
+}: TaskItemProps) => {
+  //  HOOKS 
+  
   const haptics = useHapticFeedback();
 
+  //  EVENT HANDLERS 
+  
+  /**
+   * Handles task completion toggle with status update
+   */
   const handleToggle = () => {
-    if (!isDeleting && !isProcessing) {
-      haptics.onToggle();
-      
-      // If task is being completed, update status to completed first
-      if (!task.is_completed && onStatusChange) {
-        onStatusChange(task, 'completed');
-      }
-      // If task is being uncompleted, update status to pending
-      else if (task.is_completed && onStatusChange) {
-        onStatusChange(task, 'pending');
-      }
-      
-      // Then toggle the completion status
-      onToggle(task);
+    if (isDeleting || isProcessing) return;
+    
+    haptics.onToggle();
+    
+    // Update status based on completion state
+    if (!task.is_completed && onStatusChange) {
+      onStatusChange(task, 'completed');
+    } else if (task.is_completed && onStatusChange) {
+      onStatusChange(task, 'pending');
     }
+    
+    // Toggle completion status
+    onToggle(task);
   };
 
+  /**
+   * Handles task deletion with haptic feedback
+   */
   const handleDelete = () => {
-    if (!isDeleting) {
-      haptics.onDelete();
-      onDelete(task);
-    }
+    if (isDeleting) return;
+    
+    haptics.onDelete();
+    onDelete(task);
   };
 
+  /**
+   * Handles status change with haptic feedback
+   */
   const handleStatusChange = (newStatus: string) => {
-    if (onStatusChange) {
-      haptics.onToggle();
-      onStatusChange(task, newStatus);
-    }
+    if (!onStatusChange) return;
+    
+    haptics.onToggle();
+    onStatusChange(task, newStatus);
   };
 
   return (

@@ -1,16 +1,22 @@
+/**
+ * UI State Store - Global state management for UI interactions
+ * Features: Modal states, loading states, selected items, persistence
+ */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// UI State Store
+/**
+ * UI State Interface - Defines all UI-related state and actions
+ */
 export interface UIState {
-  // Modal states
+  // ==================== MODAL STATES ====================
   isCreateListModalOpen: boolean;
   isCreateTaskModalOpen: boolean;
   isEditListModalOpen: boolean;
   isEditTaskModalOpen: boolean;
   
-  // Loading states
+  // ==================== LOADING STATES ====================
   isCreatingList: boolean;
   isCreatingTask: boolean;
   isUpdatingList: boolean;
@@ -18,11 +24,11 @@ export interface UIState {
   isDeletingList: boolean;
   isDeletingTask: boolean;
   
-  // Selected items
+  // ==================== SELECTED ITEMS ====================
   selectedListId: number | null;
   selectedTaskId: number | null;
   
-  // Actions
+  // ==================== MODAL ACTIONS ====================
   openCreateListModal: () => void;
   closeCreateListModal: () => void;
   openCreateTaskModal: () => void;
@@ -32,6 +38,7 @@ export interface UIState {
   openEditTaskModal: (taskId: number) => void;
   closeEditTaskModal: () => void;
   
+  // ==================== LOADING ACTIONS ====================
   setCreatingList: (loading: boolean) => void;
   setCreatingTask: (loading: boolean) => void;
   setUpdatingList: (loading: boolean) => void;
@@ -39,22 +46,29 @@ export interface UIState {
   setDeletingList: (loading: boolean) => void;
   setDeletingTask: (loading: boolean) => void;
   
+  // ==================== SELECTION ACTIONS ====================
   setSelectedListId: (listId: number | null) => void;
   setSelectedTaskId: (taskId: number | null) => void;
   
+  // ==================== UTILITY ACTIONS ====================
   resetUI: () => void;
 }
 
+/**
+ * UI Store Implementation with Zustand and persistence
+ */
 export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
-      // Initial modal states
+      // ==================== INITIAL STATE ====================
+      
+      // Modal states - all initially closed
       isCreateListModalOpen: false,
       isCreateTaskModalOpen: false,
       isEditListModalOpen: false,
       isEditTaskModalOpen: false,
       
-      // Initial loading states
+      // Loading states - all initially false
       isCreatingList: false,
       isCreatingTask: false,
       isUpdatingList: false,
@@ -62,11 +76,12 @@ export const useUIStore = create<UIState>()(
       isDeletingList: false,
       isDeletingTask: false,
       
-      // Initial selected items
+      // Selected items - initially null
       selectedListId: null,
       selectedTaskId: null,
       
-      // Modal actions
+      // ==================== MODAL ACTIONS ====================
+      
       openCreateListModal: () => set({ isCreateListModalOpen: true }),
       closeCreateListModal: () => set({ isCreateListModalOpen: false }),
       openCreateTaskModal: () => set({ isCreateTaskModalOpen: true }),
@@ -88,7 +103,8 @@ export const useUIStore = create<UIState>()(
         selectedTaskId: null 
       }),
       
-      // Loading state actions
+      // ==================== LOADING ACTIONS ====================
+      
       setCreatingList: (loading: boolean) => set({ isCreatingList: loading }),
       setCreatingTask: (loading: boolean) => set({ isCreatingTask: loading }),
       setUpdatingList: (loading: boolean) => set({ isUpdatingList: loading }),
@@ -96,11 +112,16 @@ export const useUIStore = create<UIState>()(
       setDeletingList: (loading: boolean) => set({ isDeletingList: loading }),
       setDeletingTask: (loading: boolean) => set({ isDeletingTask: loading }),
       
-      // Selection actions
+      // ==================== SELECTION ACTIONS ====================
+      
       setSelectedListId: (listId: number | null) => set({ selectedListId: listId }),
       setSelectedTaskId: (taskId: number | null) => set({ selectedTaskId: taskId }),
       
-      // Reset all UI state
+      // ==================== UTILITY ACTIONS ====================
+      
+      /**
+       * Resets all UI state to initial values
+       */
       resetUI: () => set({
         isCreateListModalOpen: false,
         isCreateTaskModalOpen: false,
@@ -119,7 +140,7 @@ export const useUIStore = create<UIState>()(
     {
       name: 'ui-store',
       storage: createJSONStorage(() => AsyncStorage),
-      // Only persist certain UI states, not loading states
+      // Only persist selected items, not modal states or loading states
       partialize: (state) => ({
         selectedListId: state.selectedListId,
         selectedTaskId: state.selectedTaskId,

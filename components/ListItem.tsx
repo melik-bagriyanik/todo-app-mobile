@@ -1,3 +1,7 @@
+/**
+ * ListItem - Individual list display component
+ * Features: Navigation to tasks, delete functionality, visual feedback
+ */
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { List } from '@/types';
