@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, Alert, TextInput, Modal, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { Container } from '@/components/Container';
 import { Button } from '@/components/Button';
@@ -8,15 +9,26 @@ import { LoadingIndicator } from '@/components/LoadingIndicator';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { ListItem } from '@/components/ListItem';
 import { useLists, useCreateList, useDeleteList, useSearchLists } from '@/hooks';
+import { useUIStore, usePreferencesStore } from '@/store/store';
 import { List } from '@/types';
 import { CreateListSchema } from '@/validation/schemas';
 import { validateWithAlert, validateFormInput } from '@/validation/utils';
 
 export default function ListsScreen() {
-  const [showAddModal, setShowAddModal] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
+
+  // Zustand stores
+  const {
+    isCreateListModalOpen,
+    isCreatingList,
+    openCreateListModal,
+    closeCreateListModal,
+    setCreatingList,
+  } = useUIStore();
+
+  const { defaultListSort } = usePreferencesStore();
 
   // TanStack Query hooks
   const {
@@ -63,7 +75,7 @@ export default function ListsScreen() {
     createListMutation.mutate(validatedData.name, {
       onSuccess: () => {
         setNewListName('');
-        setShowAddModal(false);
+        closeCreateListModal();
         Toast.show({
           type: 'success',
           text1: 'List Created',
@@ -152,7 +164,19 @@ export default function ListsScreen() {
 
   return (
     <Container>
-      <Stack.Screen options={{ title: 'Lists' }} />
+      <Stack.Screen 
+        options={{ 
+          title: 'Lists',
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => router.push('/settings')}
+              className="mr-2"
+            >
+              <Ionicons name="settings-outline" size={24} color="#374151" />
+            </TouchableOpacity>
+          ),
+        }} 
+      />
       
       <View className="flex-1">
         {/* Search Bar */}
@@ -187,7 +211,7 @@ export default function ListsScreen() {
         <View className="mb-4">
           <Button
             title="Add New List"
-            onPress={() => setShowAddModal(true)}
+            onPress={openCreateListModal}
             className="bg-green-500"
           />
         </View>
@@ -225,10 +249,10 @@ export default function ListsScreen() {
 
       {/* Add List Modal */}
       <Modal
-        visible={showAddModal}
+        visible={isCreateListModalOpen}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowAddModal(false)}
+        onRequestClose={closeCreateListModal}
       >
         <View className="flex-1 justify-center items-center bg-black/50">
           <View className="bg-white p-6 rounded-lg w-11/12 max-w-sm">
@@ -247,7 +271,7 @@ export default function ListsScreen() {
               <Button
                 title="Cancel"
                 onPress={() => {
-                  setShowAddModal(false);
+                  closeCreateListModal();
                   setNewListName('');
                 }}
                 className="flex-1 bg-gray-500 mr-3"
@@ -255,7 +279,7 @@ export default function ListsScreen() {
               <Button
                 title="Create"
                 onPress={handleCreateList}
-                loading={createListMutation.isPending}
+                loading={isCreatingList || createListMutation.isPending}
                 className="flex-1 bg-green-500"
               />
             </View>

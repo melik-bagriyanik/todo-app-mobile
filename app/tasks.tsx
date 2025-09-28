@@ -16,6 +16,7 @@ import {
   useTasksByStatus, 
   useTasksByPriority 
 } from '@/hooks';
+import { useUIStore, usePreferencesStore } from '@/store/store';
 import { Task } from '@/types';
 import { CreateTaskSchema } from '@/validation/schemas';
 import { validateWithAlert, validateFormInput } from '@/validation/utils';
@@ -25,12 +26,27 @@ export default function TasksScreen() {
     listId: string;
     listName: string;
   }>();
-  const [showAddModal, setShowAddModal] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
+
+  // Zustand stores
+  const {
+    isCreateTaskModalOpen,
+    isCreatingTask,
+    openCreateTaskModal,
+    closeCreateTaskModal,
+  } = useUIStore();
+
+  const { 
+    defaultTaskPriority, 
+    defaultTaskStatus, 
+    showCompletedTasks,
+    showTaskDescriptions,
+    compactView 
+  } = usePreferencesStore();
 
   const listIdNumber = parseInt(listId || '0');
 
@@ -113,7 +129,7 @@ export default function TasksScreen() {
       name: newTaskName.trim(),
       description: newTaskDescription.trim() || undefined,
       list_id: listIdNumber,
-      priority: 'medium' as const,
+      priority: defaultTaskPriority,
     };
 
     const validatedData = validateWithAlert(
@@ -126,12 +142,12 @@ export default function TasksScreen() {
 
     createTaskMutation.mutate({
       ...validatedData,
-      status: 'pending',
+      status: defaultTaskStatus,
     }, {
       onSuccess: () => {
         setNewTaskName('');
         setNewTaskDescription('');
-        setShowAddModal(false);
+        closeCreateTaskModal();
         Toast.show({
           type: 'success',
           text1: 'Task Created',
@@ -337,7 +353,7 @@ export default function TasksScreen() {
         <View className="mb-4">
           <Button
             title="Add New Task"
-            onPress={() => setShowAddModal(true)}
+            onPress={openCreateTaskModal}
             className="bg-blue-500"
           />
         </View>
@@ -379,10 +395,10 @@ export default function TasksScreen() {
 
       {/* Add Task Modal */}
       <Modal
-        visible={showAddModal}
+        visible={isCreateTaskModalOpen}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowAddModal(false)}
+        onRequestClose={closeCreateTaskModal}
       >
         <View className="flex-1 justify-center items-center bg-black/50">
           <View className="bg-white p-6 rounded-lg w-11/12 max-w-sm">
@@ -411,7 +427,7 @@ export default function TasksScreen() {
               <Button
                 title="Cancel"
                 onPress={() => {
-                  setShowAddModal(false);
+                  closeCreateTaskModal();
                   setNewTaskName('');
                   setNewTaskDescription('');
                 }}
@@ -420,7 +436,7 @@ export default function TasksScreen() {
               <Button
                 title="Create"
                 onPress={handleCreateTask}
-                loading={createTaskMutation.isPending}
+                loading={isCreatingTask || createTaskMutation.isPending}
                 className="flex-1 bg-blue-500"
               />
             </View>
