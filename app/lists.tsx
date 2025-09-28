@@ -9,7 +9,7 @@ import { LoadingIndicator } from '@/components/LoadingIndicator';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { ListItem } from '@/components/ListItem';
 import { useLists, useCreateList, useDeleteList, useSearchLists } from '@/hooks';
-import { useUIStore, usePreferencesStore } from '@/store/store';
+import { useUIStore } from '@/store/store';
 import { List } from '@/types';
 import { CreateListSchema } from '@/validation/schemas';
 import { validateWithAlert, validateFormInput } from '@/validation/utils';
@@ -17,6 +17,7 @@ import { validateWithAlert, validateFormInput } from '@/validation/utils';
 export default function ListsScreen() {
   const [newListName, setNewListName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [deletingListId, setDeletingListId] = useState<number | null>(null);
   const router = useRouter();
 
   // Zustand stores
@@ -28,7 +29,6 @@ export default function ListsScreen() {
     setCreatingList,
   } = useUIStore();
 
-  const { defaultListSort } = usePreferencesStore();
 
   // TanStack Query hooks
   const {
@@ -104,8 +104,10 @@ export default function ListsScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
+            setDeletingListId(list.id);
             deleteListMutation.mutate(list.id, {
               onSuccess: () => {
+                setDeletingListId(null);
                 Toast.show({
                   type: 'success',
                   text1: 'List Deleted',
@@ -113,6 +115,7 @@ export default function ListsScreen() {
                 });
               },
               onError: (err) => {
+                setDeletingListId(null);
                 Toast.show({
                   type: 'error',
                   text1: 'Error',
@@ -140,7 +143,7 @@ export default function ListsScreen() {
       list={item}
       onPress={handleListPress}
       onDelete={handleDeleteList}
-      isDeleting={deleteListMutation.isPending}
+      isDeleting={deletingListId === item.id}
     />
   );
 
@@ -167,14 +170,6 @@ export default function ListsScreen() {
       <Stack.Screen 
         options={{ 
           title: 'Lists',
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => router.push('/settings')}
-              className="mr-2"
-            >
-              <Ionicons name="settings-outline" size={24} color="#374151" />
-            </TouchableOpacity>
-          ),
         }} 
       />
       

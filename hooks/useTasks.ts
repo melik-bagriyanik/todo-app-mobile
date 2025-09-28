@@ -95,8 +95,44 @@ export const useCreateTask = () => {
 
   return useMutation({
     mutationFn: createTask,
+    onMutate: async (newTask) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: taskKeys.byList(newTask.list_id) });
+
+      // Snapshot the previous value
+      const previousTasks = queryClient.getQueryData(taskKeys.byList(newTask.list_id));
+
+      // Create optimistic task
+      const optimisticTask = {
+        id: Date.now(), // Temporary ID
+        ...newTask,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        is_completed: false,
+      };
+
+      // Optimistically update tasks by list
+      queryClient.setQueryData(taskKeys.byList(newTask.list_id), (old: any) => {
+        if (!old) return [optimisticTask];
+        return [optimisticTask, ...old];
+      });
+
+      // Optimistically update all tasks
+      queryClient.setQueryData(taskKeys.tasks(), (old: any) => {
+        if (!old) return [optimisticTask];
+        return [optimisticTask, ...old];
+      });
+
+      return { previousTasks, optimisticTask };
+    },
+    onError: (err, newTask, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousTasks) {
+        queryClient.setQueryData(taskKeys.byList(newTask.list_id), context.previousTasks);
+      }
+    },
     onSuccess: (_, variables) => {
-      // Invalidate tasks and specific list tasks
+      // Invalidate tasks and specific list tasks to get the real data
       queryClient.invalidateQueries({ queryKey: taskKeys.tasks() });
       queryClient.invalidateQueries({ queryKey: taskKeys.byList(variables.list_id) });
       queryClient.invalidateQueries({ queryKey: taskKeys.completed() });
@@ -206,8 +242,50 @@ export const useDeleteTask = () => {
 
   return useMutation({
     mutationFn: deleteTask,
+    onMutate: async (taskId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: taskKeys.task(taskId) });
+
+      // Snapshot the previous values
+      const previousTask = queryClient.getQueryData(taskKeys.task(taskId));
+      
+      // Find which lists this task belongs to
+      const allTasks = queryClient.getQueryData(taskKeys.tasks()) as any[] | undefined;
+      const taskToDelete = allTasks?.find((task: any) => task.id === taskId);
+      
+      const previousTasksByList = taskToDelete 
+        ? queryClient.getQueryData(taskKeys.byList(taskToDelete.list_id))
+        : null;
+
+      // Optimistically remove the task
+      queryClient.setQueryData(taskKeys.task(taskId), undefined);
+      
+      queryClient.setQueryData(taskKeys.tasks(), (old: any) => {
+        if (!old) return [];
+        return old.filter((task: any) => task.id !== taskId);
+      });
+
+      if (taskToDelete) {
+        queryClient.setQueryData(taskKeys.byList(taskToDelete.list_id), (old: any) => {
+          if (!old) return [];
+          return old.filter((task: any) => task.id !== taskId);
+        });
+      }
+
+      return { previousTask, previousTasksByList, taskToDelete };
+    },
+    onError: (err, taskId, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousTask) {
+        queryClient.setQueryData(taskKeys.task(taskId), context.previousTask);
+      }
+      
+      if (context?.previousTasksByList && context?.taskToDelete) {
+        queryClient.setQueryData(taskKeys.byList(context.taskToDelete.list_id), context.previousTasksByList);
+      }
+    },
     onSuccess: () => {
-      // Invalidate all task-related queries
+      // Invalidate all task-related queries to ensure consistency
       queryClient.invalidateQueries({ queryKey: taskKeys.all });
     },
   });

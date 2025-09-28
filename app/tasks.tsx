@@ -16,7 +16,7 @@ import {
   useTasksByStatus, 
   useTasksByPriority 
 } from '@/hooks';
-import { useUIStore, usePreferencesStore } from '@/store/store';
+import { useUIStore } from '@/store/store';
 import { Task } from '@/types';
 import { CreateTaskSchema } from '@/validation/schemas';
 import { validateWithAlert, validateFormInput } from '@/validation/utils';
@@ -40,13 +40,12 @@ export default function TasksScreen() {
     closeCreateTaskModal,
   } = useUIStore();
 
-  const { 
-    defaultTaskPriority, 
-    defaultTaskStatus, 
-    showCompletedTasks,
-    showTaskDescriptions,
-    compactView 
-  } = usePreferencesStore();
+  // Default values
+  const defaultTaskPriority = 'medium';
+  const defaultTaskStatus = 'pending';
+  const showCompletedTasks = true;
+  const showTaskDescriptions = true;
+  const compactView = false;
 
   const listIdNumber = parseInt(listId || '0');
 

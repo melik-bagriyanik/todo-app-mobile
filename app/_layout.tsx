@@ -5,14 +5,19 @@ import Toast from 'react-native-toast-message';
 
 import DatabaseProvider from '@/providers/database-provider';
 import QueryProvider from '@/providers/query-provider';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { NetworkStatus } from '@/components/NetworkStatus';
 
 export default function Layout() {
   return (
-    <QueryProvider>
-      <DatabaseProvider>
-        <Stack />
-        <Toast />
-      </DatabaseProvider>
-    </QueryProvider>
+    <ErrorBoundary>
+      <QueryProvider>
+        <DatabaseProvider>
+          <NetworkStatus />
+          <Stack />
+          <Toast />
+        </DatabaseProvider>
+      </QueryProvider>
+    </ErrorBoundary>
   );
 }

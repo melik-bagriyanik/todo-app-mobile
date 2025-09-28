@@ -55,8 +55,43 @@ export const useCreateList = () => {
 
   return useMutation({
     mutationFn: createList,
+    onMutate: async (name) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: listKeys.lists() });
+
+      // Snapshot the previous value
+      const previousLists = queryClient.getQueryData(listKeys.lists());
+
+      // Create optimistic list
+      const optimisticList = {
+        id: Date.now(), // Temporary ID
+        name,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Optimistically update lists
+      queryClient.setQueryData(listKeys.lists(), (old: any) => {
+        if (!old) return [optimisticList];
+        return [optimisticList, ...old];
+      });
+
+      // Optimistically update recent lists
+      queryClient.setQueryData(listKeys.recent(), (old: any) => {
+        if (!old) return [optimisticList];
+        return [optimisticList, ...old.slice(0, 4)]; // Keep only 5 recent
+      });
+
+      return { previousLists, optimisticList };
+    },
+    onError: (err, name, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousLists) {
+        queryClient.setQueryData(listKeys.lists(), context.previousLists);
+      }
+    },
     onSuccess: () => {
-      // Invalidate and refetch lists
+      // Invalidate and refetch lists to get the real data
       queryClient.invalidateQueries({ queryKey: listKeys.lists() });
       queryClient.invalidateQueries({ queryKey: listKeys.recent() });
     },
@@ -83,8 +118,35 @@ export const useDeleteList = () => {
 
   return useMutation({
     mutationFn: deleteList,
+    onMutate: async (listId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: listKeys.lists() });
+
+      // Snapshot the previous value
+      const previousLists = queryClient.getQueryData(listKeys.lists());
+
+      // Optimistically remove the list
+      queryClient.setQueryData(listKeys.lists(), (old: any) => {
+        if (!old) return [];
+        return old.filter((list: any) => list.id !== listId);
+      });
+
+      // Optimistically update recent lists
+      queryClient.setQueryData(listKeys.recent(), (old: any) => {
+        if (!old) return [];
+        return old.filter((list: any) => list.id !== listId);
+      });
+
+      return { previousLists };
+    },
+    onError: (err, listId, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousLists) {
+        queryClient.setQueryData(listKeys.lists(), context.previousLists);
+      }
+    },
     onSuccess: () => {
-      // Invalidate all list-related queries
+      // Invalidate all list-related queries to ensure consistency
       queryClient.invalidateQueries({ queryKey: listKeys.all });
       // Also invalidate tasks since deleting a list affects tasks
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
