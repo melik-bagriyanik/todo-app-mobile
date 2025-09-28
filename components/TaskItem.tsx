@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import * as Haptics from 'expo-haptics';
-import { Task } from '@/types';
+import { Task, Priority } from '@/types';
+import { TaskCheckbox } from './TaskCheckbox';
+import { TaskPriorityBadge } from './TaskPriorityBadge';
+import { useHapticFeedback } from '@/utils/haptics';
 
 interface TaskItemProps {
   task: Task;
@@ -12,18 +14,18 @@ interface TaskItemProps {
 }
 
 export const TaskItem = ({ task, onToggle, onDelete, isDeleting = false, isProcessing = false }: TaskItemProps) => {
+  const haptics = useHapticFeedback();
+
   const handleToggle = () => {
     if (!isDeleting && !isProcessing) {
-      // Provide immediate haptic feedback
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      haptics.onToggle();
       onToggle(task);
     }
   };
 
   const handleDelete = () => {
     if (!isDeleting) {
-      // Provide stronger haptic feedback for delete action
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      haptics.onDelete();
       onDelete(task);
     }
   };
@@ -41,17 +43,10 @@ export const TaskItem = ({ task, onToggle, onDelete, isDeleting = false, isProce
         disabled={isDeleting || isProcessing}
         activeOpacity={0.7}
       >
-        <View className={`w-6 h-6 rounded-full border-2 mr-3 ${
-          task.is_completed 
-            ? 'bg-green-500 border-green-500' 
-            : 'border-gray-300'
-        }`}>
-          {isProcessing ? (
-            <ActivityIndicator size="small" color="#10b981" />
-          ) : task.is_completed ? (
-            <Text className="text-white text-center text-sm">✓</Text>
-          ) : null}
-        </View>
+        <TaskCheckbox
+          isCompleted={task.is_completed}
+          isProcessing={isProcessing}
+        />
         <View className="flex-1">
           <Text className={`text-lg font-medium ${
             task.is_completed ? 'line-through text-gray-500' : 'text-gray-800'
@@ -62,15 +57,7 @@ export const TaskItem = ({ task, onToggle, onDelete, isDeleting = false, isProce
             <Text className="text-sm text-gray-600 mt-1">{task.description}</Text>
           )}
           <View className="flex-row items-center mt-2">
-            <Text className={`text-xs px-2 py-1 rounded-full ${
-              task.priority === 'high' 
-                ? 'bg-red-100 text-red-800'
-                : task.priority === 'medium'
-                ? 'bg-yellow-100 text-yellow-800'
-                : 'bg-green-100 text-green-800'
-            }`}>
-              {task.priority}
-            </Text>
+            <TaskPriorityBadge priority={task.priority} />
             {task.due_date && (
               <Text className="text-xs text-gray-500 ml-2">
                 Due: {new Date(task.due_date).toLocaleDateString()}

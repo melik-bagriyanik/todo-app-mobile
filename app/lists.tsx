@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Alert, TextInput, Modal, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, Alert, RefreshControl, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
+import { toastMessages } from '@/utils/toast';
 import { Container } from '@/components/Container';
 import { Button } from '@/components/Button';
 import { LoadingIndicator } from '@/components/LoadingIndicator';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { ListItem } from '@/components/ListItem';
+import { SearchBar } from '@/components/SearchBar';
+import { CreateListModal } from '@/components/CreateListModal';
 import { useLists, useCreateList, useDeleteList, useSearchLists } from '@/hooks';
 import { useUIStore } from '@/store/store';
 import { List } from '@/types';
@@ -76,18 +77,10 @@ export default function ListsScreen() {
       onSuccess: () => {
         setNewListName('');
         closeCreateListModal();
-        Toast.show({
-          type: 'success',
-          text1: 'List Created',
-          text2: 'Your list has been created successfully!',
-        });
+        toastMessages.listCreated();
       },
       onError: (err) => {
-        Toast.show({
-          type: 'error',
-          text1: 'Error',
-          text2: 'Failed to create list. Please try again.',
-        });
+        toastMessages.error('Failed to create list. Please try again.');
         console.error('Error creating list:', err);
       },
     });
@@ -108,19 +101,11 @@ export default function ListsScreen() {
             deleteListMutation.mutate(list.id, {
               onSuccess: () => {
                 setDeletingListId(null);
-                Toast.show({
-                  type: 'success',
-                  text1: 'List Deleted',
-                  text2: 'List has been deleted successfully!',
-                });
+                toastMessages.listDeleted();
               },
               onError: (err) => {
                 setDeletingListId(null);
-                Toast.show({
-                  type: 'error',
-                  text1: 'Error',
-                  text2: 'Failed to delete list. Please try again.',
-                });
+                toastMessages.error('Failed to delete list. Please try again.');
                 console.error('Error deleting list:', err);
               },
             });
@@ -175,33 +160,13 @@ export default function ListsScreen() {
       
       <View className="flex-1">
         {/* Search Bar */}
-        <View className="mb-4">
-          <View className="relative">
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search lists..."
-              placeholderTextColor="#9CA3AF"
-              className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 shadow-sm focus:border-green-500 focus:shadow-md"
-              style={{
-                paddingRight: isSearching ? 40 : 16,
-              }}
-            />
-            {isSearching && (
-              <View className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                <ActivityIndicator size="small" color="#10b981" />
-              </View>
-            )}
-            {!isSearching && searchQuery.length > 0 && (
-              <TouchableOpacity
-                onPress={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-gray-300 items-center justify-center"
-              >
-                <Text className="text-gray-600 text-xs font-bold">×</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search lists..."
+          isLoading={isSearching}
+          onClear={() => setSearchQuery('')}
+        />
 
         <View className="mb-4">
           <Button
@@ -243,44 +208,17 @@ export default function ListsScreen() {
       </View>
 
       {/* Add List Modal */}
-      <Modal
+      <CreateListModal
         visible={isCreateListModalOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={closeCreateListModal}
-      >
-        <View className="flex-1 justify-center items-center bg-black/50">
-          <View className="bg-white p-6 rounded-lg w-11/12 max-w-sm">
-            <Text className="text-xl font-bold mb-4 text-center">Create New List</Text>
-            
-            <TextInput
-              value={newListName}
-              onChangeText={setNewListName}
-              placeholder="Enter list name"
-              placeholderTextColor="#9CA3AF"
-              className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 mb-4 text-base text-gray-800 shadow-sm focus:border-green-500 focus:shadow-md"
-              autoFocus
-            />
-            
-            <View className="flex-row">
-              <Button
-                title="Cancel"
-                onPress={() => {
-                  closeCreateListModal();
-                  setNewListName('');
-                }}
-                className="flex-1 bg-gray-500 mr-3"
-              />
-              <Button
-                title="Create"
-                onPress={handleCreateList}
-                loading={isCreatingList || createListMutation.isPending}
-                className="flex-1 bg-green-500"
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => {
+          closeCreateListModal();
+          setNewListName('');
+        }}
+        onSubmit={handleCreateList}
+        value={newListName}
+        onChangeText={setNewListName}
+        isLoading={isCreatingList || createListMutation.isPending}
+      />
     </Container>
   );
 }

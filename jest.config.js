@@ -30,9 +30,9 @@ module.exports = {
       statements: 40,
     },
   },
-  transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|@react-navigation|@expo|expo|@tanstack|@expo/vector-icons)/)',
-  ],
+      transformIgnorePatterns: [
+        'node_modules/(?!(react-native|@react-native|@react-navigation|@expo|expo|@tanstack|@expo/vector-icons|expo-font|expo-modules-core)/)',
+      ],
   // Jest worker configuration
   maxWorkers: 1,
   // Force exit after tests complete
