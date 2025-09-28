@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, Alert, TextInput, Modal, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import Toast from 'react-native-toast-message';
@@ -7,9 +7,17 @@ import { Button } from '@/components/Button';
 import { LoadingIndicator } from '@/components/LoadingIndicator';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { TaskItem } from '@/components/TaskItem';
-import { getTasksByListId, createTask, deleteTask, toggleTaskCompletion, searchTasksByName, getTasksByStatus, getTasksByPriority } from '@/queries/tasks';
+import { 
+  useTasksByList, 
+  useCreateTask, 
+  useDeleteTask, 
+  useToggleTaskCompletion, 
+  useSearchTasks, 
+  useTasksByStatus, 
+  useTasksByPriority 
+} from '@/hooks';
 import { Task } from '@/types';
-import { CreateTaskSchema, TaskIdSchema, TaskSearchSchema, TaskFilterSchema } from '@/validation/schemas';
+import { CreateTaskSchema } from '@/validation/schemas';
 import { validateWithAlert, validateFormInput } from '@/validation/utils';
 
 export default function TasksScreen() {
@@ -17,195 +25,78 @@ export default function TasksScreen() {
     listId: string;
     listName: string;
   }>();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
-  const [processingTaskIds, setProcessingTaskIds] = useState<Set<number>>(new Set());
-  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
-  const [isSearching, setIsSearching] = useState(false);
-  const [isFiltering, setIsFiltering] = useState(false);
 
   const listIdNumber = parseInt(listId || '0');
 
-  // Debounce hook
-  const useDebounce = (value: string, delay: number) => {
-    const [debouncedValue, setDebouncedValue] = useState(value);
+  // TanStack Query hooks
+  const {
+    data: tasks = [],
+    isLoading: loading,
+    error,
+    refetch,
+    isRefetching: refreshing,
+  } = useTasksByList(listIdNumber);
 
-    useEffect(() => {
-      const handler = setTimeout(() => {
-        setDebouncedValue(value);
-      }, delay);
+  const {
+    data: searchResults = [],
+    isLoading: isSearching,
+  } = useSearchTasks(searchQuery);
 
-      return () => {
-        clearTimeout(handler);
-      };
-    }, [value, delay]);
+  const {
+    data: statusFilteredTasks = [],
+    isLoading: isStatusFiltering,
+  } = useTasksByStatus(filterStatus === 'all' ? '' : filterStatus);
 
-    return debouncedValue;
+  const {
+    data: priorityFilteredTasks = [],
+    isLoading: isPriorityFiltering,
+  } = useTasksByPriority(filterPriority === 'all' ? '' : filterPriority);
+
+  const createTaskMutation = useCreateTask();
+  const deleteTaskMutation = useDeleteTask();
+  const toggleTaskMutation = useToggleTaskCompletion();
+
+  // Determine which data to display based on search and filters
+  const getDisplayTasks = () => {
+    if (searchQuery.trim()) {
+      return searchResults.filter(task => task.list_id === listIdNumber);
+    }
+    
+    if (filterStatus !== 'all' && filterPriority !== 'all') {
+      // Both filters applied - intersect the results
+      const statusTasks = statusFilteredTasks.filter(task => task.list_id === listIdNumber);
+      const priorityTasks = priorityFilteredTasks.filter(task => task.list_id === listIdNumber);
+      return statusTasks.filter(task => priorityTasks.some(pt => pt.id === task.id));
+    }
+    
+    if (filterStatus !== 'all') {
+      return statusFilteredTasks.filter(task => task.list_id === listIdNumber);
+    }
+    
+    if (filterPriority !== 'all') {
+      return priorityFilteredTasks.filter(task => task.list_id === listIdNumber);
+    }
+    
+    return tasks;
   };
 
-  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const displayTasks = getDisplayTasks();
+  const isFiltering = isStatusFiltering || isPriorityFiltering;
+  const isSearchingOrFiltering = isSearching || isFiltering;
 
-  // Fetch tasks for the current list
-  const fetchTasks = async () => {
-    if (!listIdNumber) return;
-    
-    try {
-      setLoading(true);
-      setError(null);
-      const fetchedTasks = await getTasksByListId(listIdNumber);
-      setTasks(fetchedTasks);
-    } catch (err) {
-      setError('Failed to load tasks. Please try again.');
-      console.error('Error fetching tasks:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Refresh tasks (for pull-to-refresh)
-  const onRefresh = async () => {
-    if (!listIdNumber) return;
-    
-    try {
-      setRefreshing(true);
-      setError(null);
-      const fetchedTasks = await getTasksByListId(listIdNumber);
-      setTasks(fetchedTasks);
-    } catch (err) {
-      setError('Failed to refresh tasks. Please try again.');
-      console.error('Error refreshing tasks:', err);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  // Search tasks by name
-  const handleSearch = async (query: string) => {
-    if (!listIdNumber) return;
-    
-    if (!query.trim()) {
-      // If search is empty, fetch all tasks without showing full screen loading
-      try {
-        setIsSearching(true);
-        setError(null);
-        const fetchedTasks = await getTasksByListId(listIdNumber);
-        setTasks(fetchedTasks);
-      } catch (err) {
-        setError('Failed to load tasks. Please try again.');
-        console.error('Error fetching tasks:', err);
-      } finally {
-        setIsSearching(false);
-      }
-      return;
-    }
-    
-    // Validate search query
-    const searchValidation = validateFormInput(query, 1, 100, 'Search query');
-    if (!searchValidation.isValid) {
-      Alert.alert('Validation Error', searchValidation.error);
-      return;
-    }
-    
-    try {
-      setIsSearching(true);
-      setError(null);
-      const searchResults = await searchTasksByName(query);
-      // Filter results to only include tasks from current list
-      const filteredResults = searchResults.filter(task => task.list_id === listIdNumber);
-      setTasks(filteredResults);
-    } catch (err) {
-      setError('Failed to search tasks. Please try again.');
-      console.error('Error searching tasks:', err);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  // Debounced search effect
-  useEffect(() => {
-    if (debouncedSearchQuery !== searchQuery) return;
-    handleSearch(debouncedSearchQuery);
-  }, [debouncedSearchQuery]);
-
-  // Filter tasks by status
-  const handleStatusFilter = async (status: string) => {
-    if (!listIdNumber) return;
-    
+  // Filter handlers
+  const handleStatusFilter = (status: string) => {
     setFilterStatus(status);
-    
-    if (status === 'all') {
-      try {
-        setIsFiltering(true);
-        setError(null);
-        const fetchedTasks = await getTasksByListId(listIdNumber);
-        setTasks(fetchedTasks);
-      } catch (err) {
-        setError('Failed to load tasks. Please try again.');
-        console.error('Error fetching tasks:', err);
-      } finally {
-        setIsFiltering(false);
-      }
-      return;
-    }
-    
-    try {
-      setIsFiltering(true);
-      setError(null);
-      const filteredTasks = await getTasksByStatus(status);
-      // Filter results to only include tasks from current list
-      const listTasks = filteredTasks.filter(task => task.list_id === listIdNumber);
-      setTasks(listTasks);
-    } catch (err) {
-      setError('Failed to filter tasks. Please try again.');
-      console.error('Error filtering tasks:', err);
-    } finally {
-      setIsFiltering(false);
-    }
   };
 
-  // Filter tasks by priority
-  const handlePriorityFilter = async (priority: string) => {
-    if (!listIdNumber) return;
-    
+  const handlePriorityFilter = (priority: string) => {
     setFilterPriority(priority);
-    
-    if (priority === 'all') {
-      try {
-        setIsFiltering(true);
-        setError(null);
-        const fetchedTasks = await getTasksByListId(listIdNumber);
-        setTasks(fetchedTasks);
-      } catch (err) {
-        setError('Failed to load tasks. Please try again.');
-        console.error('Error fetching tasks:', err);
-      } finally {
-        setIsFiltering(false);
-      }
-      return;
-    }
-    
-    try {
-      setIsFiltering(true);
-      setError(null);
-      const filteredTasks = await getTasksByPriority(priority);
-      // Filter results to only include tasks from current list
-      const listTasks = filteredTasks.filter(task => task.list_id === listIdNumber);
-      setTasks(listTasks);
-    } catch (err) {
-      setError('Failed to filter tasks. Please try again.');
-      console.error('Error filtering tasks:', err);
-    } finally {
-      setIsFiltering(false);
-    }
   };
 
   // Create new task
@@ -233,73 +124,55 @@ export default function TasksScreen() {
 
     if (!validatedData) return;
 
-    try {
-      setIsCreating(true);
-      await createTask({
-        ...validatedData,
-        status: 'pending',
-      });
-      setNewTaskName('');
-      setNewTaskDescription('');
-      setShowAddModal(false);
-      // Refresh the tasks without showing loading
-      const fetchedTasks = await getTasksByListId(listIdNumber);
-      setTasks(fetchedTasks);
-      Toast.show({
-        type: 'success',
-        text1: 'Task Created',
-        text2: 'Your task has been created successfully!',
-      });
-    } catch (err) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to create task. Please try again.',
-      });
-      console.error('Error creating task:', err);
-    } finally {
-      setIsCreating(false);
-    }
+    createTaskMutation.mutate({
+      ...validatedData,
+      status: 'pending',
+    }, {
+      onSuccess: () => {
+        setNewTaskName('');
+        setNewTaskDescription('');
+        setShowAddModal(false);
+        Toast.show({
+          type: 'success',
+          text1: 'Task Created',
+          text2: 'Your task has been created successfully!',
+        });
+      },
+      onError: (err) => {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to create task. Please try again.',
+        });
+        console.error('Error creating task:', err);
+      },
+    });
   };
 
-  // Toggle task completion with loading state
+  // Toggle task completion with optimistic update
   const handleToggleTask = async (task: Task) => {
-    // Prevent multiple simultaneous operations on the same task
-    if (processingTaskIds.has(task.id)) {
-      return;
-    }
-
     const newCompletionStatus = !task.is_completed;
-    
-    // Add task to processing set for loading state
-    setProcessingTaskIds(prev => new Set(prev).add(task.id));
 
-    try {
-      // Perform the database update
-      await toggleTaskCompletion(task.id, newCompletionStatus);
-      // Refresh tasks after successful update
-      const fetchedTasks = await getTasksByListId(listIdNumber);
-      setTasks(fetchedTasks);
-      Toast.show({
-        type: 'success',
-        text1: 'Task Updated',
-        text2: `Task marked as ${newCompletionStatus ? 'completed' : 'pending'}`,
-      });
-    } catch (err) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to update task. Please try again.',
-      });
-      console.error('Error toggling task:', err);
-    } finally {
-      // Remove task from processing set
-      setProcessingTaskIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(task.id);
-        return newSet;
-      });
-    }
+    toggleTaskMutation.mutate({
+      id: task.id,
+      isCompleted: newCompletionStatus,
+    }, {
+      onSuccess: () => {
+        Toast.show({
+          type: 'success',
+          text1: 'Task Updated',
+          text2: `Task marked as ${newCompletionStatus ? 'completed' : 'pending'}`,
+        });
+      },
+      onError: (err) => {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to update task. Please try again.',
+        });
+        console.error('Error toggling task:', err);
+      },
+    });
   };
 
   // Delete task with confirmation
@@ -312,45 +185,37 @@ export default function TasksScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              setDeletingTaskId(task.id);
-              await deleteTask(task.id);
-              // Refresh the tasks without showing loading
-              const fetchedTasks = await getTasksByListId(listIdNumber);
-              setTasks(fetchedTasks);
-              Toast.show({
-                type: 'success',
-                text1: 'Task Deleted',
-                text2: 'Task has been deleted successfully!',
-              });
-            } catch (err) {
-              Toast.show({
-                type: 'error',
-                text1: 'Error',
-                text2: 'Failed to delete task. Please try again.',
-              });
-              console.error('Error deleting task:', err);
-            } finally {
-              setDeletingTaskId(null);
-            }
+          onPress: () => {
+            deleteTaskMutation.mutate(task.id, {
+              onSuccess: () => {
+                Toast.show({
+                  type: 'success',
+                  text1: 'Task Deleted',
+                  text2: 'Task has been deleted successfully!',
+                });
+              },
+              onError: (err) => {
+                Toast.show({
+                  type: 'error',
+                  text1: 'Error',
+                  text2: 'Failed to delete task. Please try again.',
+                });
+                console.error('Error deleting task:', err);
+              },
+            });
           },
         },
       ]
     );
   };
 
-  useEffect(() => {
-    fetchTasks();
-  }, [listIdNumber]);
-
   const renderTask = ({ item }: { item: Task }) => (
     <TaskItem
       task={item}
       onToggle={handleToggleTask}
       onDelete={handleDeleteTask}
-      isDeleting={deletingTaskId === item.id}
-      isProcessing={processingTaskIds.has(item.id)}
+      isDeleting={deleteTaskMutation.isPending}
+      isProcessing={false}
     />
   );
 
@@ -367,7 +232,7 @@ export default function TasksScreen() {
     return (
       <Container>
         <Stack.Screen options={{ title: listName }} />
-        <ErrorMessage message={error} onRetry={fetchTasks} />
+        <ErrorMessage message="Failed to load tasks. Please try again." onRetry={refetch} />
       </Container>
     );
   }
@@ -477,21 +342,25 @@ export default function TasksScreen() {
           />
         </View>
 
-        {tasks.length === 0 ? (
+        {displayTasks.length === 0 && !isSearchingOrFiltering ? (
           <View className="flex-1 justify-center items-center">
             <Text className="text-lg text-gray-600 mb-4">No tasks found</Text>
             <Text className="text-sm text-gray-500 text-center">
-              Tap "Add New Task" to create your first task
+              {searchQuery.trim() || filterStatus !== 'all' || filterPriority !== 'all' 
+                ? 'No tasks match your search or filters' 
+                : 'Tap "Add New Task" to create your first task'}
             </Text>
           </View>
-        ) : isFiltering ? (
+        ) : isSearchingOrFiltering ? (
           <View className="flex-1 justify-center items-center">
             <ActivityIndicator size="large" color="#10b981" />
-            <Text className="text-lg text-gray-600 mt-4">Filtering tasks...</Text>
+            <Text className="text-lg text-gray-600 mt-4">
+              {isSearching ? 'Searching tasks...' : 'Filtering tasks...'}
+            </Text>
           </View>
         ) : (
           <FlatList
-            data={tasks}
+            data={displayTasks}
             renderItem={renderTask}
             keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
@@ -499,7 +368,7 @@ export default function TasksScreen() {
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
-                onRefresh={onRefresh}
+                onRefresh={refetch}
                 colors={['#10b981']}
                 tintColor="#10b981"
               />
@@ -551,7 +420,7 @@ export default function TasksScreen() {
               <Button
                 title="Create"
                 onPress={handleCreateTask}
-                loading={isCreating}
+                loading={createTaskMutation.isPending}
                 className="flex-1 bg-blue-500"
               />
             </View>

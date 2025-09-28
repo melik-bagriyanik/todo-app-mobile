@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { View, Text, FlatList, Alert, TextInput, Modal, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
@@ -7,116 +7,36 @@ import { Button } from '@/components/Button';
 import { LoadingIndicator } from '@/components/LoadingIndicator';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { ListItem } from '@/components/ListItem';
-import { getAllLists, createList, deleteList, searchListsByName } from '@/queries/lists';
+import { useLists, useCreateList, useDeleteList, useSearchLists } from '@/hooks';
 import { List } from '@/types';
-import { CreateListSchema, ListIdSchema, ListSearchSchema } from '@/validation/schemas';
+import { CreateListSchema } from '@/validation/schemas';
 import { validateWithAlert, validateFormInput } from '@/validation/utils';
 
 export default function ListsScreen() {
-  const [lists, setLists] = useState<List[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newListName, setNewListName] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [deletingListId, setDeletingListId] = useState<number | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
   const router = useRouter();
 
-  // Debounce hook
-  const useDebounce = (value: string, delay: number) => {
-    const [debouncedValue, setDebouncedValue] = useState(value);
+  // TanStack Query hooks
+  const {
+    data: lists = [],
+    isLoading: loading,
+    error,
+    refetch,
+    isRefetching: refreshing,
+  } = useLists();
 
-    useEffect(() => {
-      const handler = setTimeout(() => {
-        setDebouncedValue(value);
-      }, delay);
+  const {
+    data: searchResults = [],
+    isLoading: isSearching,
+  } = useSearchLists(searchQuery);
 
-      return () => {
-        clearTimeout(handler);
-      };
-    }, [value, delay]);
+  const createListMutation = useCreateList();
+  const deleteListMutation = useDeleteList();
 
-    return debouncedValue;
-  };
-
-  const debouncedSearchQuery = useDebounce(searchQuery, 500);
-
-  // Fetch all lists
-  const fetchLists = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const fetchedLists = await getAllLists();
-      setLists(fetchedLists);
-    } catch (err) {
-      setError('Failed to load lists. Please try again.');
-      console.error('Error fetching lists:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Refresh lists (for pull-to-refresh)
-  const onRefresh = async () => {
-    try {
-      setRefreshing(true);
-      setError(null);
-      const fetchedLists = await getAllLists();
-      setLists(fetchedLists);
-    } catch (err) {
-      setError('Failed to refresh lists. Please try again.');
-      console.error('Error refreshing lists:', err);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  // Search lists by name
-  const handleSearch = async (query: string) => {
-    if (!query.trim()) {
-      // If search is empty, fetch all lists without showing full screen loading
-      try {
-        setIsSearching(true);
-        setError(null);
-        const fetchedLists = await getAllLists();
-        setLists(fetchedLists);
-      } catch (err) {
-        setError('Failed to load lists. Please try again.');
-        console.error('Error fetching lists:', err);
-      } finally {
-        setIsSearching(false);
-      }
-      return;
-    }
-    
-    // Validate search query
-    const searchValidation = validateFormInput(query, 1, 100, 'Search query');
-    if (!searchValidation.isValid) {
-      Alert.alert('Validation Error', searchValidation.error);
-      return;
-    }
-    
-    try {
-      setIsSearching(true);
-      setError(null);
-      const searchResults = await searchListsByName(query);
-      setLists(searchResults);
-    } catch (err) {
-      setError('Failed to search lists. Please try again.');
-      console.error('Error searching lists:', err);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  // Debounced search effect
-  useEffect(() => {
-    if (debouncedSearchQuery !== searchQuery) return;
-    handleSearch(debouncedSearchQuery);
-  }, [debouncedSearchQuery]);
+  // Determine which data to display based on search
+  const displayLists = searchQuery.trim() ? searchResults : lists;
 
   // Create new list
   const handleCreateList = async () => {
@@ -140,29 +60,25 @@ export default function ListsScreen() {
 
     if (!validatedData) return;
 
-    try {
-      setIsCreating(true);
-      await createList(validatedData.name);
-      setNewListName('');
-      setShowAddModal(false);
-      // Refresh the lists without showing loading
-      const fetchedLists = await getAllLists();
-      setLists(fetchedLists);
-      Toast.show({
-        type: 'success',
-        text1: 'List Created',
-        text2: 'Your list has been created successfully!',
-      });
-    } catch (err) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to create list. Please try again.',
-      });
-      console.error('Error creating list:', err);
-    } finally {
-      setIsCreating(false);
-    }
+    createListMutation.mutate(validatedData.name, {
+      onSuccess: () => {
+        setNewListName('');
+        setShowAddModal(false);
+        Toast.show({
+          type: 'success',
+          text1: 'List Created',
+          text2: 'Your list has been created successfully!',
+        });
+      },
+      onError: (err) => {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to create list. Please try again.',
+        });
+        console.error('Error creating list:', err);
+      },
+    });
   };
 
   // Delete list with confirmation
@@ -175,28 +91,24 @@ export default function ListsScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              setDeletingListId(list.id);
-              await deleteList(list.id);
-              // Refresh the lists without showing loading
-              const fetchedLists = await getAllLists();
-              setLists(fetchedLists);
-              Toast.show({
-                type: 'success',
-                text1: 'List Deleted',
-                text2: 'List has been deleted successfully!',
-              });
-            } catch (err) {
-              Toast.show({
-                type: 'error',
-                text1: 'Error',
-                text2: 'Failed to delete list. Please try again.',
-              });
-              console.error('Error deleting list:', err);
-            } finally {
-              setDeletingListId(null);
-            }
+          onPress: () => {
+            deleteListMutation.mutate(list.id, {
+              onSuccess: () => {
+                Toast.show({
+                  type: 'success',
+                  text1: 'List Deleted',
+                  text2: 'List has been deleted successfully!',
+                });
+              },
+              onError: (err) => {
+                Toast.show({
+                  type: 'error',
+                  text1: 'Error',
+                  text2: 'Failed to delete list. Please try again.',
+                });
+                console.error('Error deleting list:', err);
+              },
+            });
           },
         },
       ]
@@ -211,16 +123,12 @@ export default function ListsScreen() {
     });
   };
 
-  useEffect(() => {
-    fetchLists();
-  }, []);
-
   const renderList = ({ item }: { item: List }) => (
     <ListItem
       list={item}
       onPress={handleListPress}
       onDelete={handleDeleteList}
-      isDeleting={deletingListId === item.id}
+      isDeleting={deleteListMutation.isPending}
     />
   );
 
@@ -237,7 +145,7 @@ export default function ListsScreen() {
     return (
       <Container>
         <Stack.Screen options={{ title: 'Lists' }} />
-        <ErrorMessage message={error} onRetry={fetchLists} />
+        <ErrorMessage message="Failed to load lists. Please try again." onRetry={refetch} />
       </Container>
     );
   }
@@ -284,16 +192,21 @@ export default function ListsScreen() {
           />
         </View>
 
-        {lists.length === 0 ? (
+        {displayLists.length === 0 && !isSearching ? (
           <View className="flex-1 justify-center items-center">
             <Text className="text-lg text-gray-600 mb-4">No lists found</Text>
             <Text className="text-sm text-gray-500 text-center">
-              Tap "Add New List" to create your first list
+              {searchQuery.trim() ? 'No lists match your search' : 'Tap "Add New List" to create your first list'}
             </Text>
+          </View>
+        ) : isSearching ? (
+          <View className="flex-1 justify-center items-center">
+            <ActivityIndicator size="large" color="#10b981" />
+            <Text className="text-lg text-gray-600 mt-4">Searching lists...</Text>
           </View>
         ) : (
           <FlatList
-            data={lists}
+            data={displayLists}
             renderItem={renderList}
             keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
@@ -301,7 +214,7 @@ export default function ListsScreen() {
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
-                onRefresh={onRefresh}
+                onRefresh={refetch}
                 colors={['#10b981']}
                 tintColor="#10b981"
               />
@@ -342,7 +255,7 @@ export default function ListsScreen() {
               <Button
                 title="Create"
                 onPress={handleCreateList}
-                loading={isCreating}
+                loading={createListMutation.isPending}
                 className="flex-1 bg-green-500"
               />
             </View>

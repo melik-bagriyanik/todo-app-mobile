@@ -4,12 +4,15 @@ import { Stack } from 'expo-router';
 import Toast from 'react-native-toast-message';
 
 import DatabaseProvider from '@/providers/database-provider';
+import QueryProvider from '@/providers/query-provider';
 
 export default function Layout() {
   return (
-    <DatabaseProvider>
-      <Stack />
-      <Toast />
-    </DatabaseProvider>
+    <QueryProvider>
+      <DatabaseProvider>
+        <Stack />
+        <Toast />
+      </DatabaseProvider>
+    </QueryProvider>
   );
 }
