@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Modal, ScrollView, TouchableOpacity } from 'react-native';
 import { Button } from './Button';
 import { Priority } from '@/types';
@@ -31,6 +31,17 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [priority, setPriority] = useState<Priority>('medium');
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState('pending');
+
+  // Reset form when modal opens
+  useEffect(() => {
+    if (visible) {
+      setTaskName('');
+      setTaskDescription('');
+      setPriority('medium');
+      setDueDate('');
+      setStatus('pending');
+    }
+  }, [visible]);
 
   const handleSubmit = () => {
     // Validate due date format if provided
@@ -96,7 +107,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 onChangeText={setTaskName}
                 placeholder="Enter task name"
                 placeholderTextColor="#9CA3AF"
-                className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 shadow-sm focus:border-green-500 focus:shadow-md"
+                className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 shadow-sm focus:border-blue-500 focus:shadow-md"
                 autoFocus
               />
             </View>
@@ -109,7 +120,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 onChangeText={setTaskDescription}
                 placeholder="Enter description (optional)"
                 placeholderTextColor="#9CA3AF"
-                className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 shadow-sm focus:border-green-500 focus:shadow-md"
+                className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 shadow-sm focus:border-blue-500 focus:shadow-md"
                 multiline
                 numberOfLines={3}
               />
@@ -151,7 +162,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 className={`bg-white border-2 rounded-xl px-4 py-3 text-base text-gray-800 shadow-sm focus:shadow-md ${
                   dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate) 
                     ? 'border-red-500 focus:border-red-500' 
-                    : 'border-gray-200 focus:border-green-500'
+                    : 'border-gray-200 focus:border-blue-500'
                 }`}
               />
               {dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate) && (

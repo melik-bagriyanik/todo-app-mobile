@@ -171,6 +171,6 @@ describe('TaskItem Component', () => {
     );
     
     const priorityBadge = getByText('high');
-    expect(priorityBadge.props.className).toContain('bg-red-100');
+    expect(priorityBadge.props.className).toContain('bg-red-500');
   });
 });

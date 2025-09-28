@@ -58,7 +58,9 @@ export const TaskFilter: React.FC<TaskFilterProps> = ({
             <Text className={`text-sm font-medium ${
               statusFilter === status ? 'text-white' : 'text-gray-700'
             }`}>
-              {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
+              {status === 'all' ? 'All' : 
+               status === 'in_progress' ? 'In Progress' :
+               status.charAt(0).toUpperCase() + status.slice(1)}
             </Text>
           </TouchableOpacity>
         ))}

@@ -14,9 +14,9 @@ export const ListItem = ({ list, onPress, onDelete, isDeleting = false }: ListIt
     <TouchableOpacity
       onPress={() => !isDeleting && onPress(list)}
       disabled={isDeleting}
-      className={`p-4 mb-3 rounded-lg shadow-sm border border-gray-200 ${
+      className={`p-4 mb-3 rounded-2xl shadow-sm border border-gray-200 ${
         isDeleting ? 'bg-gray-100 opacity-75' : 'bg-white'
-      }`}
+      } active:scale-98 transition-transform`}
       activeOpacity={0.7}
     >
       <View className="flex-1">
@@ -32,13 +32,15 @@ export const ListItem = ({ list, onPress, onDelete, isDeleting = false }: ListIt
             !isDeleting && onDelete(list);
           }}
           disabled={isDeleting}
-          className={`px-4 py-2 rounded-lg ${
+          className={`px-6 py-3 rounded-xl border-2 ${
             isDeleting 
-              ? 'bg-gray-400' 
-              : 'bg-red-500'
-          }`}
+              ? 'bg-gray-400 border-gray-400' 
+              : 'bg-red-500 border-red-500 shadow-lg shadow-red-500/30'
+          } active:scale-95 transition-all duration-200`}
         >
-          <Text className="text-white font-medium">
+          <Text className={`font-semibold text-sm ${
+            isDeleting ? 'text-gray-600' : 'text-white'
+          }`}>
             {isDeleting ? 'Deleting...' : 'Delete'}
           </Text>
         </TouchableOpacity>

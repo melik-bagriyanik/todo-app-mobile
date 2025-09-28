@@ -39,9 +39,8 @@ export const NetworkStatus: React.FC<NetworkStatusProps> = ({ onRetry }) => {
     return () => unsubscribe();
   }, [isConnected, isVisible, fadeAnim]);
 
-  if (!isVisible || isConnected) {
-    return null;
-  }
+  // Temporarily disable network status
+  return null;
 
   return (
     <Animated.View 

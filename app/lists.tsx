@@ -60,9 +60,20 @@ export default function ListsScreen() {
       return;
     }
 
+    // Check for duplicate list name
+    const trimmedName = newListName.trim();
+    const existingList = lists.find(list => 
+      list.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+    
+    if (existingList) {
+      Alert.alert('Duplicate List', 'A list with this name already exists. Please choose a different name.');
+      return;
+    }
+
     // Validate list data with Zod
     const listData = {
-      name: newListName.trim(),
+      name: trimmedName,
     };
 
     const validatedData = validateWithAlert(
@@ -172,7 +183,7 @@ export default function ListsScreen() {
           <Button
             title="Add New List"
             onPress={openCreateListModal}
-            className="bg-green-500"
+            className="bg-[#292929] shadow-lg"
           />
         </View>
 

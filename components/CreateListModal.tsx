@@ -39,7 +39,7 @@ export const CreateListModal: React.FC<CreateListModalProps> = ({
             onChangeText={onChangeText}
             placeholder={placeholder}
             placeholderTextColor="#9CA3AF"
-            className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 mb-4 text-base text-gray-800 shadow-sm focus:border-green-500 focus:shadow-md"
+            className="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 mb-4 text-base text-gray-800 shadow-sm focus:border-blue-500 focus:shadow-md"
             autoFocus
           />
           
@@ -53,7 +53,7 @@ export const CreateListModal: React.FC<CreateListModalProps> = ({
               title="Create"
               onPress={onSubmit}
               loading={isLoading}
-              className="flex-1 bg-green-500"
+              className="flex-1 bg-blue-500"
             />
           </View>
         </View>

@@ -51,11 +51,11 @@ export const TaskItem = ({ task, onToggle, onDelete, onStatusChange, isDeleting 
   };
 
   return (
-    <View className={`p-4 mb-3 rounded-lg border ${
+    <View className={`p-4 mb-3 rounded-2xl border ${
       task.is_completed 
-        ? 'bg-green-50 border-green-200' 
-        : 'bg-white border-gray-200'
-    } ${isDeleting ? 'opacity-75' : ''} ${isProcessing ? 'opacity-70' : ''}`}>
+        ? 'bg-green-100 border-green-300 shadow-sm' 
+        : 'bg-white border-gray-200 shadow-sm'
+    } ${isDeleting ? 'opacity-75' : ''} ${isProcessing ? 'opacity-70' : ''} active:scale-98 transition-transform`}>
       <TouchableOpacity
         onPress={handleToggle}
         onLongPress={handleDelete}
@@ -67,21 +67,27 @@ export const TaskItem = ({ task, onToggle, onDelete, onStatusChange, isDeleting 
           isCompleted={task.is_completed}
           isProcessing={isProcessing}
         />
-        <View className="flex-1">
-          <Text className={`text-lg font-medium ${
-            task.is_completed ? 'line-through text-gray-500' : 'text-gray-800'
-          }`}>
-            {task.name}
-          </Text>
-          {task.description && (
-            <Text className="text-sm text-gray-600 mt-1">{task.description}</Text>
-          )}
+            <View className="flex-1">
+              <Text className={`text-lg font-medium ${
+                task.is_completed ? 'line-through text-green-700' : 'text-gray-800'
+              }`}>
+                {task.name}
+              </Text>
+              {task.description && (
+                <Text className={`text-sm mt-1 ${
+                  task.is_completed ? 'line-through text-green-600' : 'text-gray-600'
+                }`}>
+                  {task.description}
+                </Text>
+              )}
           
           <View className="flex-row items-center justify-between mt-2">
             <View className="flex-row items-center">
               <TaskPriorityBadge priority={task.priority} />
               {task.due_date && (
-                <Text className="text-xs text-gray-500 ml-2">
+                <Text className={`text-xs ml-2 ${
+                  task.is_completed ? 'line-through text-green-500' : 'text-gray-500'
+                }`}>
                   Due: {new Date(task.due_date).toLocaleDateString()}
                 </Text>
               )}

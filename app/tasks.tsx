@@ -76,6 +76,9 @@ export default function TasksScreen() {
     isLoading: isPriorityFiltering,
   } = useTasksByPriority(filterPriority === 'all' ? '' : filterPriority);
 
+  // Show loading when switching tabs
+  const isFilterLoading = isStatusFiltering || isPriorityFiltering;
+
   const createTaskMutation = useCreateTask();
   const deleteTaskMutation = useDeleteTask();
   const toggleTaskMutation = useToggleTaskCompletion();
@@ -120,6 +123,18 @@ export default function TasksScreen() {
 
   // Create new task
   const handleCreateTask = async (taskData: any) => {
+    // Check for duplicate task name in the same list
+    const trimmedName = taskData.name.trim();
+    const existingTask = tasks.find(task => 
+      task.list_id === listIdNumber && 
+      task.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+    
+    if (existingTask) {
+      Alert.alert('Duplicate Task', 'A task with this name already exists in this list. Please choose a different name.');
+      return;
+    }
+
     // Validate task data with Zod
     const fullTaskData = {
       ...taskData,
@@ -254,7 +269,7 @@ export default function TasksScreen() {
           <Button
             title="Add New Task"
             onPress={openCreateTaskModal}
-            className="bg-blue-500"
+            className="bg-[#292929] shadow-lg"
           />
         </View>
 
@@ -271,8 +286,8 @@ export default function TasksScreen() {
               ? 'No tasks match your search or filters' 
               : 'Tap "Add New Task" to create your first task'
           }
-          isSearchingOrFiltering={isSearchingOrFiltering}
-          searchOrFilterMessage={isSearching ? 'Searching tasks...' : 'Filtering tasks...'}
+          isSearchingOrFiltering={isSearchingOrFiltering || isFilterLoading}
+          searchOrFilterMessage={isSearching ? 'Searching tasks...' : isFilterLoading ? 'Loading tasks...' : 'Filtering tasks...'}
           deletingTaskId={deletingTaskId}
         />
       </View>

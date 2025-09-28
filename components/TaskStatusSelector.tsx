@@ -35,9 +35,9 @@ export const TaskStatusSelector: React.FC<TaskStatusSelectorProps> = ({
       <TouchableOpacity
         onPress={() => !disabled && !isLoading && setIsOpen(true)}
         disabled={disabled || isLoading}
-        className={`flex-row items-center px-2 py-1 rounded-md border ${
-          disabled || isLoading ? 'bg-gray-100 border-gray-300' : 'bg-white border-gray-300'
-        }`}
+        className={`flex-row items-center px-3 py-2 rounded-xl border ${
+          disabled || isLoading ? 'bg-gray-100 border-gray-300' : 'bg-white border-gray-300 shadow-sm'
+        } active:scale-95 transition-transform`}
         activeOpacity={0.7}
       >
         <View className={`w-2 h-2 rounded-full mr-1 ${currentOption.color}`} />
@@ -69,7 +69,7 @@ export const TaskStatusSelector: React.FC<TaskStatusSelectorProps> = ({
           activeOpacity={1}
           onPress={() => setIsOpen(false)}
         >
-          <View className="bg-white rounded-lg w-64 shadow-lg">
+          <View className="bg-white rounded-2xl w-64 shadow-2xl border border-gray-100">
             <View className="p-4 border-b border-gray-200">
               <Text className="text-lg font-semibold text-gray-800">Select Status</Text>
             </View>
@@ -79,8 +79,8 @@ export const TaskStatusSelector: React.FC<TaskStatusSelectorProps> = ({
                 key={option.value}
                 onPress={() => handleStatusSelect(option.value)}
                 className={`flex-row items-center px-4 py-3 ${
-                  currentStatus === option.value ? 'bg-gray-50' : ''
-                }`}
+                  currentStatus === option.value ? 'bg-blue-50' : ''
+                } active:bg-gray-50 transition-colors`}
                 activeOpacity={0.7}
               >
                 <View className={`w-4 h-4 rounded-full mr-3 ${option.color}`} />

@@ -214,6 +214,7 @@ export const useToggleTaskCompletion = () => {
         return {
           ...old,
           is_completed: isCompleted,
+          status: isCompleted ? 'completed' : 'pending',
           updated_at: new Date().toISOString(),
         };
       });
@@ -223,7 +224,7 @@ export const useToggleTaskCompletion = () => {
         if (!old) return old;
         return old.map((task: any) => 
           task.id === id 
-            ? { ...task, is_completed: isCompleted, updated_at: new Date().toISOString() }
+            ? { ...task, is_completed: isCompleted, status: isCompleted ? 'completed' : 'pending', updated_at: new Date().toISOString() }
             : task
         );
       });
@@ -235,9 +236,35 @@ export const useToggleTaskCompletion = () => {
           if (!old) return old;
           return old.map((task: any) => 
             task.id === id 
-              ? { ...task, is_completed: isCompleted, updated_at: new Date().toISOString() }
+              ? { ...task, is_completed: isCompleted, status: isCompleted ? 'completed' : 'pending', updated_at: new Date().toISOString() }
               : task
           );
+        }
+      );
+
+      // Update status filter queries with proper filtering
+      queryClient.setQueriesData(
+        { queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byStatus' },
+        (old: any, query: any) => {
+          if (!old) return old;
+          const updatedTasks = old.map((task: any) => 
+            task.id === id 
+              ? { ...task, is_completed: isCompleted, status: isCompleted ? 'completed' : 'pending', updated_at: new Date().toISOString() }
+              : task
+          );
+          
+          // Get the current filter status from query key
+          const currentFilter = query?.queryKey?.[3];
+          if (currentFilter && currentFilter !== 'all') {
+            // Filter out tasks that don't match the current status filter
+            return updatedTasks.filter((task: any) => {
+              if (currentFilter === 'completed') return task.is_completed;
+              if (currentFilter === 'pending') return !task.is_completed && task.status === 'pending';
+              if (currentFilter === 'in_progress') return task.status === 'in_progress';
+              return true;
+            });
+          }
+          return updatedTasks;
         }
       );
 
@@ -251,8 +278,9 @@ export const useToggleTaskCompletion = () => {
       }
     },
     onSuccess: (_, { id }) => {
-      // Don't invalidate queries - optimistic update is sufficient
-      // Only invalidate related queries that don't affect the main task lists
+      // Invalidate filter queries to refresh them
+      queryClient.invalidateQueries({ queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byStatus' });
+      queryClient.invalidateQueries({ queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byPriority' });
       queryClient.invalidateQueries({ queryKey: taskKeys.completed() });
       queryClient.invalidateQueries({ queryKey: taskKeys.upcoming() });
     },
@@ -370,6 +398,45 @@ export const useUpdateTaskStatus = () => {
         }
       );
 
+      // Update status filter queries with proper filtering
+      queryClient.setQueriesData(
+        { queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byStatus' },
+        (old: any, query: any) => {
+          if (!old) return old;
+          const updatedTasks = old.map((task: any) => 
+            task.id === id 
+              ? { ...task, is_completed: isCompleted, status: isCompleted ? 'completed' : 'pending', updated_at: new Date().toISOString() }
+              : task
+          );
+          
+          // Get the current filter status from query key
+          const currentFilter = query?.queryKey?.[3];
+          if (currentFilter && currentFilter !== 'all') {
+            // Filter out tasks that don't match the current status filter
+            return updatedTasks.filter((task: any) => {
+              if (currentFilter === 'completed') return task.is_completed;
+              if (currentFilter === 'pending') return !task.is_completed && task.status === 'pending';
+              if (currentFilter === 'in_progress') return task.status === 'in_progress';
+              return true;
+            });
+          }
+          return updatedTasks;
+        }
+      );
+
+      // Update priority filter queries
+      queryClient.setQueriesData(
+        { queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byPriority' },
+        (old: any) => {
+          if (!old) return old;
+          return old.map((task: any) => 
+            task.id === id 
+              ? { ...task, is_completed: isCompleted, status: isCompleted ? 'completed' : 'pending', updated_at: new Date().toISOString() }
+              : task
+          );
+        }
+      );
+
       // Update individual task query
       queryClient.setQueryData(taskKeys.task(id), (old: any) => {
         if (!old) return old;
@@ -388,8 +455,9 @@ export const useUpdateTaskStatus = () => {
       }
     },
     onSuccess: () => {
-      // Don't invalidate queries - optimistic update is sufficient
-      // Only invalidate related queries that don't affect the main task lists
+      // Invalidate filter queries to refresh them
+      queryClient.invalidateQueries({ queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byStatus' });
+      queryClient.invalidateQueries({ queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byPriority' });
       queryClient.invalidateQueries({ queryKey: taskKeys.completed() });
       queryClient.invalidateQueries({ queryKey: taskKeys.upcoming() });
     },
