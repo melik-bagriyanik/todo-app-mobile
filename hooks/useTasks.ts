@@ -12,6 +12,7 @@ import {
   searchTasksByName,
   toggleTaskCompletion,
   updateTask,
+  updateTaskStatus,
 } from '@/queries/tasks';
 
 // Query Keys
@@ -250,9 +251,8 @@ export const useToggleTaskCompletion = () => {
       }
     },
     onSuccess: (_, { id }) => {
-      // Invalidate specific task and related queries to ensure consistency
-      queryClient.invalidateQueries({ queryKey: taskKeys.task(id) });
-      queryClient.invalidateQueries({ queryKey: taskKeys.tasks() });
+      // Don't invalidate queries - optimistic update is sufficient
+      // Only invalidate related queries that don't affect the main task lists
       queryClient.invalidateQueries({ queryKey: taskKeys.completed() });
       queryClient.invalidateQueries({ queryKey: taskKeys.upcoming() });
     },
@@ -279,20 +279,31 @@ export const useDeleteTask = () => {
         ? queryClient.getQueryData(taskKeys.byList(taskToDelete.list_id))
         : null;
 
-      // Optimistically remove the task
+      // Optimistically remove the task from all queries
       queryClient.setQueryData(taskKeys.task(taskId), undefined);
       
+      // Remove from main tasks list
       queryClient.setQueryData(taskKeys.tasks(), (old: any) => {
         if (!old) return [];
         return old.filter((task: any) => task.id !== taskId);
       });
 
+      // Remove from tasks by list for the specific list
       if (taskToDelete) {
         queryClient.setQueryData(taskKeys.byList(taskToDelete.list_id), (old: any) => {
           if (!old) return [];
           return old.filter((task: any) => task.id !== taskId);
         });
       }
+
+      // Remove from all tasks by list queries
+      queryClient.setQueriesData(
+        { queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byList' },
+        (old: any) => {
+          if (!old) return [];
+          return old.filter((task: any) => task.id !== taskId);
+        }
+      );
 
       return { previousTask, previousTasksByList, taskToDelete };
     },
@@ -305,10 +316,82 @@ export const useDeleteTask = () => {
       if (context?.previousTasksByList && context?.taskToDelete) {
         queryClient.setQueryData(taskKeys.byList(context.taskToDelete.list_id), context.previousTasksByList);
       }
+
+      // Restore the task to all queries
+      if (context?.taskToDelete) {
+        queryClient.setQueryData(taskKeys.tasks(), (old: any) => {
+          if (!old) return [context.taskToDelete];
+          return [context.taskToDelete, ...old];
+        });
+      }
     },
     onSuccess: () => {
-      // Invalidate all task-related queries to ensure consistency
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      // Don't invalidate queries - optimistic update is sufficient
+      // Only invalidate related queries that don't include the deleted task
+      queryClient.invalidateQueries({ queryKey: taskKeys.completed() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.upcoming() });
+    },
+  });
+};
+
+export const useUpdateTaskStatus = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      updateTaskStatus(id, status),
+    onMutate: async ({ id, status }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: taskKeys.all });
+
+      // Snapshot the previous values
+      const previousTasks = queryClient.getQueryData(taskKeys.tasks());
+      const previousTasksByList = queryClient.getQueryData(taskKeys.byList(id));
+
+      // Optimistically update the task status and completion status
+      const isCompleted = status === 'completed';
+      
+      // Update all task queries
+      queryClient.setQueryData(taskKeys.tasks(), (old: any) => {
+        if (!old) return old;
+        return old.map((task: any) =>
+          task.id === id ? { ...task, status, is_completed: isCompleted } : task
+        );
+      });
+
+      // Update tasks by list queries for all lists
+      queryClient.setQueriesData(
+        { queryKey: taskKeys.tasks(), predicate: (query) => query.queryKey[2] === 'byList' },
+        (old: any) => {
+          if (!old) return old;
+          return old.map((task: any) =>
+            task.id === id ? { ...task, status, is_completed: isCompleted } : task
+          );
+        }
+      );
+
+      // Update individual task query
+      queryClient.setQueryData(taskKeys.task(id), (old: any) => {
+        if (!old) return old;
+        return { ...old, status, is_completed: isCompleted };
+      });
+
+      return { previousTasks, previousTasksByList };
+    },
+    onError: (err, { id }, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousTasks) {
+        queryClient.setQueryData(taskKeys.tasks(), context.previousTasks);
+      }
+      if (context?.previousTasksByList) {
+        queryClient.setQueryData(taskKeys.byList(id), context.previousTasksByList);
+      }
+    },
+    onSuccess: () => {
+      // Don't invalidate queries - optimistic update is sufficient
+      // Only invalidate related queries that don't affect the main task lists
+      queryClient.invalidateQueries({ queryKey: taskKeys.completed() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.upcoming() });
     },
   });
 };

@@ -10,11 +10,16 @@ export const CreateTaskSchema = z.object({
     .int('List ID must be an integer')
     .positive('List ID must be positive'),
   priority: z.enum(['low', 'medium', 'high'])
-    .default('medium')
-    .optional(),
+    .default('medium'),
   description: z.string()
     .max(500, 'Description must be less than 500 characters')
     .optional(),
+  status: z.enum(['pending', 'in_progress', 'completed'])
+    .default('pending'),
+  due_date: z.string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Due date must be in YYYY-MM-DD format')
+    .optional(),
+  image: z.string().url('Image must be a valid URL').optional(),
 });
 
 export const UpdateTaskSchema = z.object({

@@ -15,6 +15,7 @@ import {
   useCreateTask, 
   useDeleteTask, 
   useToggleTaskCompletion, 
+  useUpdateTaskStatus,
   useSearchTasks, 
   useTasksByStatus, 
   useTasksByPriority 
@@ -29,11 +30,10 @@ export default function TasksScreen() {
     listId: string;
     listName: string;
   }>();
-  const [newTaskName, setNewTaskName] = useState('');
-  const [newTaskDescription, setNewTaskDescription] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
+  const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
 
   // Zustand stores
   const {
@@ -79,6 +79,7 @@ export default function TasksScreen() {
   const createTaskMutation = useCreateTask();
   const deleteTaskMutation = useDeleteTask();
   const toggleTaskMutation = useToggleTaskCompletion();
+  const updateStatusMutation = useUpdateTaskStatus();
 
   // Determine which data to display based on search and filters
   const getDisplayTasks = () => {
@@ -118,37 +119,23 @@ export default function TasksScreen() {
   };
 
   // Create new task
-  const handleCreateTask = async () => {
-    // Validate task name
-    const nameValidation = validateFormInput(newTaskName, 1, 100, 'Task name');
-    if (!nameValidation.isValid) {
-      Alert.alert('Validation Error', nameValidation.error);
-      return;
-    }
-
+  const handleCreateTask = async (taskData: any) => {
     // Validate task data with Zod
-    const taskData = {
-      name: newTaskName.trim(),
-      description: newTaskDescription.trim() || undefined,
+    const fullTaskData = {
+      ...taskData,
       list_id: listIdNumber,
-      priority: defaultTaskPriority,
     };
 
     const validatedData = validateWithAlert(
       CreateTaskSchema,
-      taskData,
+      fullTaskData,
       'Task Validation Error'
     );
 
     if (!validatedData) return;
 
-    createTaskMutation.mutate({
-      ...validatedData,
-      status: defaultTaskStatus,
-    }, {
+    createTaskMutation.mutate(validatedData, {
       onSuccess: () => {
-        setNewTaskName('');
-        setNewTaskDescription('');
         closeCreateTaskModal();
         toastMessages.taskCreated();
       },
@@ -177,6 +164,22 @@ export default function TasksScreen() {
     });
   };
 
+  // Handle task status change
+  const handleStatusChange = async (task: Task, newStatus: string) => {
+    updateStatusMutation.mutate({
+      id: task.id,
+      status: newStatus,
+    }, {
+      onSuccess: () => {
+        toastMessages.taskUpdated();
+      },
+      onError: (err) => {
+        toastMessages.error('Failed to update task status. Please try again.');
+        console.error('Error updating task status:', err);
+      },
+    });
+  };
+
   // Delete task with confirmation
   const handleDeleteTask = (task: Task) => {
     Alert.alert(
@@ -188,11 +191,14 @@ export default function TasksScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
+            setDeletingTaskId(task.id);
             deleteTaskMutation.mutate(task.id, {
               onSuccess: () => {
+                setDeletingTaskId(null);
                 toastMessages.taskDeleted();
               },
               onError: (err) => {
+                setDeletingTaskId(null);
                 toastMessages.error('Failed to delete task. Please try again.');
                 console.error('Error deleting task:', err);
               },
@@ -256,7 +262,7 @@ export default function TasksScreen() {
           tasks={displayTasks}
           onToggleTask={handleToggleTask}
           onDeleteTask={handleDeleteTask}
-          isDeleting={deleteTaskMutation.isPending}
+          onStatusChange={handleStatusChange}
           isRefreshing={refreshing}
           onRefresh={refetch}
           emptyMessage="No tasks found"
@@ -267,22 +273,15 @@ export default function TasksScreen() {
           }
           isSearchingOrFiltering={isSearchingOrFiltering}
           searchOrFilterMessage={isSearching ? 'Searching tasks...' : 'Filtering tasks...'}
+          deletingTaskId={deletingTaskId}
         />
       </View>
 
       {/* Add Task Modal */}
       <CreateTaskModal
         visible={isCreateTaskModalOpen}
-        onClose={() => {
-          closeCreateTaskModal();
-          setNewTaskName('');
-          setNewTaskDescription('');
-        }}
+        onClose={closeCreateTaskModal}
         onSubmit={handleCreateTask}
-        taskName={newTaskName}
-        taskDescription={newTaskDescription}
-        onTaskNameChange={setNewTaskName}
-        onTaskDescriptionChange={setNewTaskDescription}
         isLoading={isCreatingTask || createTaskMutation.isPending}
       />
     </Container>

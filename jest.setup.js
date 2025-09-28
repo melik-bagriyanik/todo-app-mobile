@@ -10,6 +10,13 @@ jest.mock('expo-haptics', () => ({
   },
 }));
 
+// Mock @expo/vector-icons
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Ionicons',
+  MaterialIcons: 'MaterialIcons',
+  FontAwesome: 'FontAwesome',
+}));
+
 jest.mock('expo-sqlite', () => ({
   openDatabase: jest.fn(),
   openDatabaseSync: jest.fn(() => ({

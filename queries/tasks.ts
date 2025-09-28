@@ -228,6 +228,37 @@ export const toggleTaskCompletion = async (id: number, isCompleted: boolean) => 
 };
 
 /**
+ * Updates the status of a task
+ *
+ * @param id - The unique identifier of the task to update
+ * @param status - The new status to set
+ *
+ * @remarks
+ * This function updates the status field and the updated_at timestamp.
+ * Network latency is simulated to emulate real-world API behavior.
+ *
+ * @returns A promise that resolves when the task status is updated
+ *
+ * @example
+ * ```typescript
+ * await updateTaskStatus(42, "in_progress");
+ * ```
+ */
+export const updateTaskStatus = async (id: number, status: string) => {
+  await simulateNetworkLatency();
+  const isCompleted = status === 'completed';
+  return db
+    .update(tasks)
+    .set({
+      status: status,
+      is_completed: isCompleted,
+      updated_at: new Date().toISOString(),
+    })
+    .where(eq(tasks.id, id))
+    .run();
+};
+
+/**
  * Searches for tasks by name with partial matching
  *
  * @param searchTerm - The string to search for in task names

@@ -31,7 +31,7 @@ module.exports = {
     },
   },
       transformIgnorePatterns: [
-        'node_modules/(?!(react-native|@react-native|@react-navigation|@expo|expo|@tanstack|@expo/vector-icons|expo-font|expo-modules-core|@react-native-community)/)',
+        'node_modules/(?!(react-native|@react-native|@react-navigation|@expo|expo|@tanstack|@expo/vector-icons|expo-font|expo-modules-core|@react-native-community|react-native-toast-message)/)',
       ],
   // Jest worker configuration
   maxWorkers: 1,

@@ -7,33 +7,36 @@ interface TaskListProps {
   tasks: Task[];
   onToggleTask: (task: Task) => void;
   onDeleteTask: (task: Task) => void;
-  isDeleting?: boolean;
+  onStatusChange?: (task: Task, newStatus: string) => void;
   isRefreshing?: boolean;
   onRefresh?: () => void;
   emptyMessage?: string;
   emptySubMessage?: string;
   isSearchingOrFiltering?: boolean;
   searchOrFilterMessage?: string;
+  deletingTaskId?: number | null;
 }
 
 export const TaskList: React.FC<TaskListProps> = ({
   tasks,
   onToggleTask,
   onDeleteTask,
-  isDeleting = false,
+  onStatusChange,
   isRefreshing = false,
   onRefresh,
   emptyMessage = 'No tasks found',
   emptySubMessage = 'Tap "Add New Task" to create your first task',
   isSearchingOrFiltering = false,
   searchOrFilterMessage = 'Searching tasks...',
+  deletingTaskId = null,
 }) => {
   const renderTask = ({ item }: { item: Task }) => (
     <TaskItem
       task={item}
       onToggle={onToggleTask}
       onDelete={onDeleteTask}
-      isDeleting={isDeleting}
+      onStatusChange={onStatusChange}
+      isDeleting={deletingTaskId === item.id}
       isProcessing={false}
     />
   );
